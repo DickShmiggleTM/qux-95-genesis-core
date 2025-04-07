@@ -32,6 +32,7 @@ import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 type TabType = 'terminal' | 'chat' | 'code' | 'settings' | 'rag' | 'image-gen' | 'prompt-edit';
 
 const Dashboard = () => {
+  const { theme } = useTheme();
   const [activeTab, setActiveTab] = useState<TabType>('chat');
   const [isSelfModifying, setIsSelfModifying] = useState(false);
   const [systemStatus, setSystemStatus] = useState('ONLINE');
@@ -116,9 +117,15 @@ const Dashboard = () => {
     return () => clearInterval(autoInterval);
   }, [autoMode, autoModeCounter]);
 
-  const runAutonomousCommand = (message: string) => {
+  const runAutonomousCommand = async (message: string) => {
     toast.info("QUX-95 Autonomous Action", {
       description: message
+    });
+    
+    // Add to model's context
+    ollamaService.storeInMemory('autonomous', Date.now().toString(), {
+      action: 'command',
+      message
     });
     
     return message;
@@ -137,7 +144,8 @@ const Dashboard = () => {
         return `System Status: ${systemStatus}
 Ollama Connection: ${isOllamaConnected ? 'CONNECTED' : 'DISCONNECTED'}
 Current Model: ${currentModel?.name || 'None'}
-Autonomous Mode: ${autoMode ? 'ENABLED' : 'DISABLED'}`;
+Autonomous Mode: ${autoMode ? 'ENABLED' : 'DISABLED'}
+Session ID: ${ollamaService.getSessionId()}`;
 
       case 'connect':
         if (args[0] === 'ollama') {
@@ -195,14 +203,28 @@ Usage: auto [on|off|enable|disable]`;
       case 'self-modify':
         setIsSelfModifying(true);
         return 'Initiating self-modification sequence...';
+        
+      case 'ollama':
+        // Forward the command to Ollama service
+        try {
+          const result = await ollamaService.executeCommand(args.join(' '));
+          return result;
+        } catch (error) {
+          return `Ollama error: ${error instanceof Error ? error.message : String(error)}`;
+        }
 
       case 'exec':
         if (args.length === 0) {
           return 'Usage: exec <command>';
         }
-        // Simulate code execution
-        await new Promise(r => setTimeout(r, 500));
-        return `Executed: ${args.join(' ')}\nReturn code: 0`;
+        
+        try {
+          // Execute via Ollama service
+          const result = await ollamaService.executeCommand(args.join(' '));
+          return `Executed: ${args.join(' ')}\n${result}`;
+        } catch (error) {
+          return `Execution error: ${error instanceof Error ? error.message : String(error)}`;
+        }
 
       case 'help':
         return `
@@ -215,13 +237,19 @@ Available commands:
   modify               - Start self-modification
   self-modify          - Same as 'modify'
   exec <command>       - Execute a system command
+  ollama <command>     - Send command to Ollama
   help                 - Show this help message
   clear                - Clear terminal
 `;
 
       default:
-        return `Unknown command: ${command}
+        // Try to execute unknown commands via Ollama
+        try {
+          return await ollamaService.executeCommand(command);
+        } catch {
+          return `Unknown command: ${command}
 Type 'help' for available commands.`;
+        }
     }
   };
 
@@ -230,10 +258,17 @@ Type 'help' for available commands.`;
     toast.success("Self-modification complete", {
       description: "System performance enhanced by 17.3%"
     });
+    
+    // Record the self-modification in the model's context
+    ollamaService.storeInMemory('self-modification', Date.now().toString(), {
+      timestamp: new Date().toISOString(),
+      result: "System performance enhanced by 17.3%"
+    });
   };
 
   const handleModelSelect = (model: OllamaModel) => {
     setCurrentModel(model);
+    ollamaService.setCurrentModel(model.id);
     
     toast.success(`Model ${model.name} selected`, {
       description: `${model.parameters} parameters loaded successfully`
@@ -257,7 +292,10 @@ Type 'help' for available commands.`;
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-cyberpunk-dark text-cyberpunk-neon-green font-terminal">
+    <div className={cn(
+      "min-h-screen flex flex-col bg-cyberpunk-dark text-cyberpunk-neon-green font-terminal",
+      theme === 'terminal' ? 'theme-terminal' : theme === 'hacker' ? 'theme-hacker' : 'theme-cyberpunk'
+    )}>
       {/* Scanlines effect */}
       <div className="scanline"></div>
       <div className="scanline-2"></div>
@@ -459,11 +497,16 @@ Type 'help' for available commands.`;
                   isOllamaConnected ? "Ollama connection established." : "Connecting to Ollama..."
                 ]}
                 onCommand={handleTerminalCommand}
+                autoMode={autoMode}
               />
             )}
             
             {activeTab === 'chat' && (
-              <ChatWindow className="h-[calc(100vh-10rem)]" modelName={currentModel?.name || "QUX-95"} />
+              <ChatWindow 
+                className="h-[calc(100vh-10rem)]" 
+                modelName={currentModel?.name || "QUX-95"} 
+                autoMode={autoMode}
+              />
             )}
             
             {activeTab === 'code' && (

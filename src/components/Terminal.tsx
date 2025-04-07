@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { ollamaService } from '@/services/ollamaService';
 
 interface TerminalProps {
   className?: string;
@@ -9,6 +10,7 @@ interface TerminalProps {
   initialMessages?: string[];
   onCommand?: (command: string) => void | string | Promise<string | void>;
   height?: string;
+  autoMode?: boolean;
 }
 
 const Terminal: React.FC<TerminalProps> = ({
@@ -16,7 +18,8 @@ const Terminal: React.FC<TerminalProps> = ({
   prompt = "QUX-95>",
   initialMessages = [],
   onCommand,
-  height = "h-64"
+  height = "h-64",
+  autoMode = false
 }) => {
   const [inputValue, setInputValue] = useState("");
   const [history, setHistory] = useState<string[]>([...initialMessages]);
@@ -25,6 +28,7 @@ const Terminal: React.FC<TerminalProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const terminalRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const autoModeInterval = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Scroll to bottom when history changes
@@ -37,8 +41,44 @@ const Terminal: React.FC<TerminalProps> = ({
     }
   }, [history]);
 
+  // Auto mode for autonomous execution
+  useEffect(() => {
+    if (autoMode) {
+      // Set up autonomous command execution
+      if (!autoModeInterval.current) {
+        // Create a list of autonomous commands to randomly execute
+        const autoCommands = [
+          "status",
+          "models",
+          "auto on",
+          "exec analyze system performance",
+          "self-modify optimize memory usage",
+          "connection"
+        ];
+        
+        autoModeInterval.current = setInterval(() => {
+          // Pick a random command
+          const randomCommand = autoCommands[Math.floor(Math.random() * autoCommands.length)];
+          executeCommand(randomCommand);
+        }, 30000); // Every 30 seconds
+      }
+    } else {
+      // Clean up interval when auto mode is disabled
+      if (autoModeInterval.current) {
+        clearInterval(autoModeInterval.current);
+        autoModeInterval.current = null;
+      }
+    }
+    
+    return () => {
+      if (autoModeInterval.current) {
+        clearInterval(autoModeInterval.current);
+      }
+    };
+  }, [autoMode]);
+
   // Built-in terminal commands
-  const builtInCommands: Record<string, (args: string[]) => string> = {
+  const builtInCommands: Record<string, (args: string[]) => string | Promise<string>> = {
     help: () => {
       return `
 Available commands:
@@ -51,6 +91,9 @@ Available commands:
   exec <command>       - Execute system command
   self-modify          - Activate self-modification
   connection           - Check Ollama connection status
+  memory <key>         - Show memory content
+  context              - Show context window
+  auto [on|off]        - Toggle autonomous mode
 `;
     },
     clear: () => {
@@ -59,6 +102,99 @@ Available commands:
     },
     echo: (args) => {
       return args.join(" ");
+    },
+    status: async () => {
+      const connected = await ollamaService.checkConnection();
+      const currentModel = ollamaService.getCurrentModel();
+      return `
+System Status: ONLINE
+Ollama Connection: ${connected ? 'CONNECTED' : 'DISCONNECTED'}
+Current Model: ${currentModel || 'None'}
+Session ID: ${ollamaService.getSessionId()}
+Memory Status: ACTIVE
+`;
+    },
+    model: async (args) => {
+      if (args.length === 0) {
+        const currentModel = ollamaService.getCurrentModel();
+        return `Current model: ${currentModel || 'None'}`;
+      }
+      
+      const modelName = args.join(' ');
+      const models = ollamaService.getModels();
+      const model = models.find(m => m.name.toLowerCase() === modelName.toLowerCase() || m.id.toLowerCase() === modelName.toLowerCase());
+      
+      if (model) {
+        ollamaService.setCurrentModel(model.id);
+        return `Model set to ${model.name} (${model.id})`;
+      } else {
+        return `Model "${modelName}" not found. Use 'models' to see available models.`;
+      }
+    },
+    models: async () => {
+      const models = ollamaService.getModels();
+      
+      if (models.length === 0) {
+        return 'No models available. Make sure Ollama is connected.';
+      }
+      
+      return `Available models:\n${models.map(m => `- ${m.name} (${m.id}): ${m.parameters}`).join('\n')}`;
+    },
+    exec: async (args) => {
+      if (args.length === 0) {
+        return 'Usage: exec <command>';
+      }
+      
+      const command = args.join(' ');
+      try {
+        const result = await ollamaService.executeCommand(command);
+        return result;
+      } catch (error) {
+        return `Error executing command: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    },
+    connection: async () => {
+      const connected = await ollamaService.checkConnection();
+      return connected 
+        ? 'Successfully connected to Ollama.' 
+        : 'Failed to connect to Ollama. Is it running?';
+    },
+    memory: (args) => {
+      const key = args[0];
+      if (!key) {
+        return 'Usage: memory <category>';
+      }
+      
+      const data = ollamaService.retrieveFromMemory(key);
+      return `Memory contents for "${key}":\n${JSON.stringify(data, null, 2)}`;
+    },
+    context: () => {
+      const context = ollamaService.getContext();
+      return `Recent context window:\n${JSON.stringify(context.slice(-5), null, 2)}`;
+    },
+    "self-modify": async (args) => {
+      if (args.length === 0) {
+        return 'Usage: self-modify <description>';
+      }
+      
+      const description = args.join(' ');
+      const result = await ollamaService.selfModify(
+        "// Simulated code modification",
+        description
+      );
+      
+      return result 
+        ? `Self-modification successful: ${description}` 
+        : 'Self-modification failed';
+    },
+    auto: (args) => {
+      // This will be handled by the Dashboard component
+      if (args[0] === 'on' || args[0] === 'enable') {
+        return 'Autonomous mode enabled.';
+      } else if (args[0] === 'off' || args[0] === 'disable') {
+        return 'Autonomous mode disabled.';
+      }
+      return `Usage: auto [on|off|enable|disable]`;
     }
   };
 
@@ -79,9 +215,13 @@ Available commands:
     
     // Check for built-in command
     if (builtInCommands[cmd]) {
-      const result = builtInCommands[cmd](args);
-      if (result) {
-        addToHistory(result);
+      try {
+        const result = await builtInCommands[cmd](args);
+        if (result) {
+          addToHistory(result);
+        }
+      } catch (error) {
+        addToHistory(`Error: ${error instanceof Error ? error.message : String(error)}`);
       }
       return;
     }
@@ -149,8 +289,8 @@ Available commands:
     if (e.key === "Tab") {
       e.preventDefault();
       const possibleCommands = [
-        "help", "status", "connect", "model", "chat", "settings", "clear", 
-        "exit", "exec", "self-modify", "connection", "models", "echo"
+        "help", "status", "connect", "model", "models", "chat", "settings", "clear", 
+        "exit", "exec", "self-modify", "connection", "memory", "context", "auto", "echo"
       ];
       
       const matchingCommands = possibleCommands.filter(
@@ -168,11 +308,13 @@ Available commands:
     }
   };
   
-  // Run system commands automatically
-  const runSystemCommand = async (command: string) => {
-    addToHistory(`SYSTEM: ${command}`);
-    await executeCommand(command);
-  };
+  // Access for programmatic command execution
+  React.useImperativeHandle(
+    (window as any).terminalRef = {},
+    () => ({
+      executeCommand: (cmd: string) => executeCommand(cmd)
+    })
+  );
 
   return (
     <div 

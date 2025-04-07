@@ -21,6 +21,17 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     document.body.classList.remove('theme-cyberpunk', 'theme-terminal', 'theme-hacker');
     document.body.classList.add(`theme-${theme}`);
     
+    // Set CSS variables based on theme
+    const root = document.documentElement;
+    
+    if (theme === 'cyberpunk') {
+      root.style.setProperty('--primary-color-rgb', '0, 255, 102');
+    } else if (theme === 'terminal') {
+      root.style.setProperty('--primary-color-rgb', '51, 255, 51');
+    } else if (theme === 'hacker') {
+      root.style.setProperty('--primary-color-rgb', '0, 255, 0');
+    }
+    
     // Disable animations if needed
     if (!animationsEnabled) {
       document.body.classList.add('disable-animations');

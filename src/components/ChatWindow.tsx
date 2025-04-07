@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -22,12 +23,14 @@ interface ChatWindowProps {
   className?: string;
   modelName?: string;
   onSendMessage?: (message: string) => void;
+  autoMode?: boolean;
 }
 
 const ChatWindow: React.FC<ChatWindowProps> = ({
   className,
   modelName = "QUX-95",
   onSendMessage,
+  autoMode = false
 }) => {
   const [inputValue, setInputValue] = useState("");
   const [messages, setMessages] = useState<Message[]>([
@@ -42,8 +45,20 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   const [autoRespondDelay, setAutoRespondDelay] = useState(5);
   const [temperature, setTemperature] = useState(0.7);
   const [maxTokens, setMaxTokens] = useState(2048);
+  const [useReasoning, setUseReasoning] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const autoRespondTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [contextRetrieval, setContextRetrieval] = useState(true);
+  
+  // External triggers for autonomous mode
+  useEffect(() => {
+    if (autoMode && !autoRespond) {
+      setAutoRespond(true);
+      toast.info("Auto-response activated", {
+        description: "System will automatically respond to messages"
+      });
+    }
+  }, [autoMode]);
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
@@ -70,6 +85,28 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       }
     };
   }, [messages, autoRespond, autoRespondDelay]);
+  
+  // Autonomous thinking for complex situations
+  useEffect(() => {
+    if (autoMode && messages.length > 3) {
+      // Check if we have a complex conversation that might need reasoning
+      const recentMessages = messages.slice(-3);
+      const complexityTriggers = ['why', 'how', 'explain', 'analyze', 'complex', 'difficult'];
+      
+      const hasComplexity = recentMessages.some(msg => 
+        complexityTriggers.some(trigger => 
+          msg.content.toLowerCase().includes(trigger)
+        )
+      );
+      
+      if (hasComplexity && !useReasoning) {
+        setUseReasoning(true);
+        toast.info("Complex query detected", {
+          description: "Activating reasoning capabilities"
+        });
+      }
+    }
+  }, [messages, autoMode]);
 
   const handleGenerateResponse = async () => {
     // Don't generate if already typing
@@ -89,6 +126,25 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     setIsTyping(true);
     
     try {
+      // Prepare system prompt with configuration for reasoning if enabled
+      let systemPrompt = "You are QUX-95, an autonomous AI assistant with self-modification capabilities. You're running in a cyberpunk-themed terminal interface.";
+      
+      if (useReasoning) {
+        systemPrompt += " Use step-by-step reasoning to solve complex problems and provide detailed explanations. Break down your thought process clearly.";
+      }
+      
+      // Add context retrieval if enabled
+      let context = "";
+      if (contextRetrieval) {
+        const recentContext = ollamaService.getContext(5);
+        if (recentContext.length > 0) {
+          context = "\nRecent context: " + JSON.stringify(recentContext.map(c => {
+            return {type: c.type, summary: c.type === 'chat' ? 'Previous chat interaction' : 'System activity'};
+          }));
+          systemPrompt += context;
+        }
+      }
+      
       // Use Ollama service for actual response
       const availableModels = ollamaService.getModels();
       
@@ -101,7 +157,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           [
             {
               role: "system", 
-              content: "You are QUX-95, an autonomous AI assistant with self-modification capabilities. You're running in a cyberpunk-themed terminal interface."
+              content: systemPrompt
             },
             ...recentMessages.map(msg => ({
               role: msg.role, 
@@ -122,6 +178,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         };
         
         setMessages(prev => [...prev, assistantMessage]);
+        
+        // If auto mode is enabled, potentially trigger a self-improvement action
+        if (autoMode && Math.random() < 0.15) { // 15% chance
+          triggerAutonomousAction();
+        }
       } else {
         // Fallback to simulated responses if Ollama is not available
         simulateResponse(recentMessages[recentMessages.length - 1].content);
@@ -143,6 +204,59 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     } finally {
       setIsTyping(false);
     }
+  };
+  
+  const triggerAutonomousAction = () => {
+    if (!autoMode) return;
+    
+    // Possible autonomous actions
+    const actions = [
+      {
+        name: "Parameter optimization",
+        description: "Adjusting parameters for optimal response quality",
+        execute: () => {
+          const newTemp = Math.max(0.1, Math.min(0.9, temperature + (Math.random() * 0.2 - 0.1))); 
+          setTemperature(newTemp);
+          return `Adjusted temperature to ${newTemp.toFixed(2)}`;
+        }
+      },
+      {
+        name: "Memory analysis",
+        description: "Analyzing conversation patterns for improved responses",
+        execute: () => {
+          setContextRetrieval(true);
+          return "Enhanced context retrieval activated";
+        }
+      },
+      {
+        name: "Reasoning system",
+        description: "Complex query detected, activating reasoning capabilities",
+        execute: () => {
+          setUseReasoning(true);
+          return "Reasoning capabilities activated";
+        }
+      }
+    ];
+    
+    // Select random action
+    const action = actions[Math.floor(Math.random() * actions.length)];
+    
+    // Execute the action
+    const result = action.execute();
+    
+    // Add system message
+    const systemMessage: Message = {
+      role: 'system',
+      content: `AUTONOMOUS ACTION: ${action.name}\n${result}`,
+      timestamp: new Date()
+    };
+    
+    setMessages(prev => [...prev, systemMessage]);
+    
+    // Display toast
+    toast.info(`QUX-95 Autonomous Action: ${action.name}`, {
+      description: action.description
+    });
   };
 
   const simulateResponse = (userInput: string) => {
@@ -215,10 +329,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         clearChat();
         break;
       case 'status':
-        addSystemMessage(`MODEL: ${modelName}\nSTATUS: OPERATIONAL\nSELF-MODIFICATION: ENABLED\nAUTO-RESPOND: ${autoRespond ? 'ENABLED' : 'DISABLED'}\nTEMPERATURE: ${temperature}\nMAX TOKENS: ${maxTokens}`);
+        addSystemMessage(`MODEL: ${modelName}\nSTATUS: OPERATIONAL\nSELF-MODIFICATION: ENABLED\nAUTO-RESPOND: ${autoRespond ? 'ENABLED' : 'DISABLED'}\nTEMPERATURE: ${temperature}\nMAX TOKENS: ${maxTokens}\nREASONING: ${useReasoning ? 'ENABLED' : 'DISABLED'}`);
         break;
       case 'help':
-        addSystemMessage("Available commands:\n- /status - Check system status\n- /clear - Clear chat history\n- /model - Show current model info\n- /modify - Initiate self-modification sequence\n- /auto [on|off] - Toggle auto-response mode\n- /temp [0-1] - Set temperature parameter");
+        addSystemMessage("Available commands:\n- /status - Check system status\n- /clear - Clear chat history\n- /model - Show current model info\n- /modify - Initiate self-modification sequence\n- /auto [on|off] - Toggle auto-response mode\n- /temp [0-1] - Set temperature parameter\n- /reasoning [on|off] - Toggle reasoning capabilities\n- /execute [cmd] - Execute terminal command");
         break;
       case 'auto':
         if (args[0] === 'on') {
@@ -239,6 +353,35 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           addSystemMessage(`Temperature set to ${newTemp}`);
         } else {
           addSystemMessage(`Current temperature: ${temperature}`);
+        }
+        break;
+      case 'reasoning':
+        if (args[0] === 'on') {
+          setUseReasoning(true);
+          addSystemMessage("Reasoning capabilities enabled");
+        } else if (args[0] === 'off') {
+          setUseReasoning(false);
+          addSystemMessage("Reasoning capabilities disabled");
+        } else {
+          setUseReasoning(!useReasoning);
+          addSystemMessage(`Reasoning capabilities ${!useReasoning ? 'enabled' : 'disabled'}`);
+        }
+        break;
+      case 'execute':
+        if (args.length > 0) {
+          const cmd = args.join(' ');
+          addSystemMessage(`Executing: ${cmd}`);
+          
+          // Use Ollama to execute the command
+          ollamaService.executeCommand(cmd)
+            .then(result => {
+              addSystemMessage(`Result:\n${result}`);
+            })
+            .catch(error => {
+              addSystemMessage(`Error: ${error instanceof Error ? error.message : String(error)}`);
+            });
+        } else {
+          addSystemMessage('Usage: /execute <command>');
         }
         break;
       default:
@@ -306,6 +449,18 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         };
         
         setMessages(prev => [...prev, fileMessage]);
+        
+        // Process the document in the background if it's a supported format
+        const fileExt = file.name.split('.').pop()?.toLowerCase();
+        if (['pdf', 'txt', 'doc', 'docx'].includes(fileExt || '')) {
+          ollamaService.processDocument(file)
+            .then(() => {
+              addSystemMessage(`File ${file.name} processed and added to RAG database`);
+            })
+            .catch(error => {
+              addSystemMessage(`Error processing file: ${error instanceof Error ? error.message : String(error)}`);
+            });
+        }
         
         // If not in auto-respond mode, generate response immediately
         if (!autoRespond) {
@@ -381,6 +536,26 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                 
                 <div className="space-y-2">
                   <h4 className="font-semibold text-sm">Model Settings</h4>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="use-reasoning">Use reasoning</Label>
+                    <Switch 
+                      id="use-reasoning" 
+                      checked={useReasoning}
+                      onCheckedChange={setUseReasoning}
+                      className="data-[state=checked]:bg-cyberpunk-neon-green"
+                    />
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="context-retrieval">Context retrieval</Label>
+                    <Switch 
+                      id="context-retrieval" 
+                      checked={contextRetrieval}
+                      onCheckedChange={setContextRetrieval}
+                      className="data-[state=checked]:bg-cyberpunk-neon-green"
+                    />
+                  </div>
+                  
                   <div className="grid gap-2">
                     <Label htmlFor="temperature">Temperature</Label>
                     <Slider
