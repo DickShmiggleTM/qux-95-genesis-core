@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
-import { Cpu, Memory, Network, AlertTriangle, Server } from 'lucide-react';
+import { Cpu, HardDrive, Network, AlertTriangle, Server } from 'lucide-react';
 
 interface StatusBarProps {
   className?: string;
@@ -73,7 +73,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ className }) => {
           <span>CPU: {statusIndicators.cpu}%</span>
         </div>
         <div className="flex items-center">
-          <Memory className="h-3 w-3 mr-1" />
+          <HardDrive className="h-3 w-3 mr-1" />
           <span>MEM: {statusIndicators.memory}%</span>
         </div>
         <div className="flex items-center">
