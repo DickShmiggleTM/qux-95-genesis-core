@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import Terminal from './Terminal';
+import React, { useState, useEffect, useRef } from 'react';
+import Terminal, { TerminalRefHandle } from './Terminal';
 import ModelSelector from './ModelSelector';
 import ChatWindow from './ChatWindow';
 import StatusBar from './StatusBar';
@@ -40,6 +40,9 @@ const Dashboard = () => {
   const [currentModel, setCurrentModel] = useState<OllamaModel | null>(null);
   const [autoMode, setAutoMode] = useState(false);
   const [autoModeCounter, setAutoModeCounter] = useState(0);
+  
+  // Create a reference to the terminal component
+  const terminalRef = useRef<TerminalRefHandle>(null);
   
   // Connect to Ollama on startup
   useEffect(() => {
@@ -489,6 +492,7 @@ Type 'help' for available commands.`;
           <div className="flex-1 overflow-hidden">
             {activeTab === 'terminal' && (
               <Terminal 
+                ref={terminalRef}
                 className="h-[calc(100vh-10rem)]" 
                 initialMessages={[
                   "QUX-95 GENESIS CORE v1.1.0",
@@ -549,6 +553,7 @@ Type 'help' for available commands.`;
   );
 };
 
+// Correcting the DashboardWithTheme component
 const DashboardWithTheme = () => {
   return (
     <ThemeProvider>
