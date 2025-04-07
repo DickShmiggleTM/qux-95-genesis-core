@@ -1,8 +1,10 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { Upload, AlertTriangle } from 'lucide-react';
+import { toast } from "sonner";
 
 interface Model {
   id: string;
@@ -11,6 +13,7 @@ interface Model {
   parameters?: string;
   status: 'available' | 'downloading' | 'error';
   progress?: number;
+  local?: boolean;
 }
 
 interface ModelSelectorProps {
@@ -56,6 +59,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
   ]);
 
   const [selectedModel, setSelectedModel] = useState<string | null>('llama2');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleModelSelect = (model: Model) => {
     if (model.status === 'available') {
@@ -63,36 +67,90 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
       if (onModelSelect) {
         onModelSelect(model);
       }
+    } else {
+      toast.info(`Model ${model.name} is not ready yet`, {
+        description: model.status === 'downloading' 
+          ? `Download progress: ${model.progress}%` 
+          : "Model is currently unavailable"
+      });
     }
   };
 
-  const uploadModel = () => {
-    // Simulate file upload - in a real app, this would open a file dialog
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files?.length) return;
+    
+    const file = event.target.files[0];
+    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    
+    if (fileExtension !== 'gguf') {
+      toast.error("Invalid file format", {
+        description: "Only .gguf files are supported for model uploads"
+      });
+      return;
+    }
+    
+    // Create a new model entry
+    const newModelId = `custom-${Date.now()}`;
     const newModel: Model = {
-      id: 'custom-' + Date.now().toString(),
-      name: 'Custom Model',
-      description: 'Uploaded user model',
+      id: newModelId,
+      name: file.name.replace('.gguf', ''),
+      description: 'Custom uploaded model',
       status: 'downloading',
-      progress: 0
+      progress: 0,
+      local: true
     };
     
-    setModels([...models, newModel]);
+    setModels(prev => [...prev, newModel]);
+    toast.success("Model upload started", {
+      description: `Preparing ${file.name}`
+    });
     
-    // Simulate download process
+    // Simulate upload and processing
     let progress = 0;
     const interval = setInterval(() => {
-      progress += 10;
-      if (progress <= 100) {
+      progress += Math.floor(Math.random() * 5) + 3; // Random progress increase between 3-7%
+      
+      if (progress >= 100) {
+        clearInterval(interval);
+        progress = 100;
+        
         setModels(prev => prev.map(m => 
-          m.id === newModel.id ? { ...m, progress } : m
+          m.id === newModelId 
+            ? { ...m, status: 'available', progress: undefined } 
+            : m
         ));
+        
+        toast.success("Model upload complete", {
+          description: `${file.name} is now ready to use`
+        });
       } else {
         setModels(prev => prev.map(m => 
-          m.id === newModel.id ? { ...m, status: 'available', progress: undefined } : m
+          m.id === newModelId ? { ...m, progress } : m
         ));
-        clearInterval(interval);
       }
     }, 500);
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const openFileDialog = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleModelError = (modelId: string) => {
+    setModels(prev => prev.map(m => 
+      m.id === modelId ? { ...m, status: 'error' } : m
+    ));
+    
+    const model = models.find(m => m.id === modelId);
+    if (model) {
+      toast.error(`Failed to load ${model.name}`, {
+        description: "Check console for details or try again"
+      });
+    }
   };
 
   return (
@@ -117,7 +175,10 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
           >
             <div className="p-3 text-sm">
               <div className="flex items-center justify-between">
-                <h3 className="font-bold text-cyberpunk-neon-blue">
+                <h3 className={cn(
+                  "font-bold",
+                  model.local ? "text-cyberpunk-neon-purple" : "text-cyberpunk-neon-blue" 
+                )}>
                   {model.name}
                   {model.parameters && <span className="ml-2 text-xs opacity-80">{model.parameters}</span>}
                 </h3>
@@ -129,7 +190,9 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
                     <span className="text-yellow-400 animate-pulse">● DOWNLOADING</span>
                   )}
                   {model.status === 'error' && (
-                    <span className="text-cyberpunk-neon-pink">● ERROR</span>
+                    <span className="text-cyberpunk-neon-pink flex items-center">
+                      <AlertTriangle className="h-3 w-3 mr-1" /> ERROR
+                    </span>
                   )}
                 </div>
               </div>
@@ -150,13 +213,27 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
           </Card>
         ))}
         
-        <Button 
-          variant="outline"
-          className="mt-2 border border-dashed border-cyberpunk-neon-blue text-cyberpunk-neon-blue hover:bg-cyberpunk-dark-blue"
-          onClick={uploadModel}
-        >
-          + UPLOAD GGUF MODEL
-        </Button>
+        <input 
+          type="file" 
+          ref={fileInputRef}
+          className="hidden" 
+          onChange={handleFileUpload}
+          accept=".gguf"
+        />
+        
+        <div className="relative">
+          <Button 
+            variant="outline"
+            className="w-full mt-2 border border-dashed border-cyberpunk-neon-purple text-cyberpunk-neon-purple hover:bg-cyberpunk-dark-blue flex items-center justify-center"
+            onClick={openFileDialog}
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            UPLOAD GGUF MODEL
+          </Button>
+          <div className="text-xs text-cyberpunk-neon-purple opacity-70 mt-1 text-center">
+            Supports local quantized models in GGUF format
+          </div>
+        </div>
       </div>
     </div>
   );
