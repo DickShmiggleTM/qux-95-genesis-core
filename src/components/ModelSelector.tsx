@@ -1,82 +1,104 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { Upload, AlertTriangle } from 'lucide-react';
+import { Upload, AlertTriangle, RefreshCw } from 'lucide-react';
 import { toast } from "sonner";
-
-interface Model {
-  id: string;
-  name: string;
-  description: string;
-  parameters?: string;
-  status: 'available' | 'downloading' | 'error';
-  progress?: number;
-  local?: boolean;
-}
+import { ollamaService, OllamaModel } from '@/services/ollamaService';
 
 interface ModelSelectorProps {
   className?: string;
-  onModelSelect?: (model: Model) => void;
+  onModelSelect?: (model: OllamaModel) => void;
 }
 
 const ModelSelector: React.FC<ModelSelectorProps> = ({ 
   className,
   onModelSelect 
 }) => {
-  // Demo models
-  const [models, setModels] = useState<Model[]>([
-    {
-      id: 'llama2',
-      name: 'Llama 2',
-      description: 'Meta AI\'s open LLM suitable for dialogue and text generation',
-      parameters: '7B',
-      status: 'available'
-    },
-    {
-      id: 'codellama',
-      name: 'CodeLlama',
-      description: 'Code specialized model with improved programming abilities',
-      parameters: '13B',
-      status: 'available'
-    },
-    {
-      id: 'mistral',
-      name: 'Mistral',
-      description: 'Efficient open-weight model with strong reasoning capabilities',
-      parameters: '7B',
-      status: 'available'
-    },
-    {
-      id: 'qux-aux',
-      name: 'QUX-AUX',
-      description: 'Self-modifying auxiliary system with CoT reasoning',
-      parameters: 'Unknown',
-      status: 'downloading',
-      progress: 45
-    }
-  ]);
-
-  const [selectedModel, setSelectedModel] = useState<string | null>('llama2');
+  const [models, setModels] = useState<OllamaModel[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleModelSelect = (model: Model) => {
-    if (model.status === 'available') {
-      setSelectedModel(model.id);
-      if (onModelSelect) {
-        onModelSelect(model);
+  // Fetch models on component mount
+  useEffect(() => {
+    loadModels();
+  }, []);
+  
+  const loadModels = async () => {
+    setIsLoading(true);
+    try {
+      // Check if Ollama is connected
+      const isConnected = await ollamaService.checkConnection();
+      
+      if (isConnected) {
+        // Load models from Ollama
+        const ollamaModels = await ollamaService.loadAvailableModels();
+        setModels(ollamaModels);
+        
+        // Set first model as selected if none selected
+        if (ollamaModels.length > 0 && !selectedModel) {
+          setSelectedModel(ollamaModels[0].id);
+          ollamaService.setCurrentModel(ollamaModels[0].id);
+          
+          if (onModelSelect) {
+            onModelSelect(ollamaModels[0]);
+          }
+        }
+      } else {
+        // If not connected, use demo models
+        setModels([
+          {
+            id: 'llama2',
+            name: 'Llama 2',
+            modelfile: '',
+            size: 0,
+            parameters: '7B',
+            format: 'gguf'
+          },
+          {
+            id: 'codellama',
+            name: 'CodeLlama',
+            modelfile: '',
+            size: 0,
+            parameters: '13B',
+            format: 'gguf'
+          },
+          {
+            id: 'mistral',
+            name: 'Mistral',
+            modelfile: '',
+            size: 0,
+            parameters: '7B',
+            format: 'gguf'
+          }
+        ]);
       }
-    } else {
-      toast.info(`Model ${model.name} is not ready yet`, {
-        description: model.status === 'downloading' 
-          ? `Download progress: ${model.progress}%` 
-          : "Model is currently unavailable"
+    } catch (error) {
+      console.error("Error loading models:", error);
+      toast.error("Failed to load models", {
+        description: "Check if Ollama is running properly"
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleModelSelect = (model: OllamaModel) => {
+    setSelectedModel(model.id);
+    ollamaService.setCurrentModel(model.id);
+    
+    if (onModelSelect) {
+      onModelSelect(model);
+    }
+    
+    toast.success(`Model ${model.name} selected`, {
+      description: `${model.parameters} parameters loaded`
+    });
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!event.target.files?.length) return;
     
     const file = event.target.files[0];
@@ -89,46 +111,35 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
       return;
     }
     
-    // Create a new model entry
+    // Create a new model entry for UI feedback
     const newModelId = `custom-${Date.now()}`;
-    const newModel: Model = {
+    const newModel: OllamaModel = {
       id: newModelId,
       name: file.name.replace('.gguf', ''),
-      description: 'Custom uploaded model',
-      status: 'downloading',
-      progress: 0,
-      local: true
+      modelfile: '',
+      size: file.size,
+      parameters: 'Custom',
+      format: 'gguf'
     };
     
-    setModels(prev => [...prev, newModel]);
-    toast.success("Model upload started", {
-      description: `Preparing ${file.name}`
-    });
+    setModels(prev => [...prev, {...newModel, size: 0}]);
     
-    // Simulate upload and processing
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += Math.floor(Math.random() * 5) + 3; // Random progress increase between 3-7%
+    // Start upload process via Ollama service
+    try {
+      await ollamaService.uploadModel(file);
       
-      if (progress >= 100) {
-        clearInterval(interval);
-        progress = 100;
-        
-        setModels(prev => prev.map(m => 
-          m.id === newModelId 
-            ? { ...m, status: 'available', progress: undefined } 
-            : m
-        ));
-        
-        toast.success("Model upload complete", {
-          description: `${file.name} is now ready to use`
-        });
-      } else {
-        setModels(prev => prev.map(m => 
-          m.id === newModelId ? { ...m, progress } : m
-        ));
-      }
-    }, 500);
+      // Refresh model list
+      loadModels();
+    } catch (error) {
+      console.error("Error uploading model:", error);
+      
+      // Remove the temporary model entry
+      setModels(prev => prev.filter(m => m.id !== newModelId));
+      
+      toast.error("Failed to upload model", {
+        description: "There was an error processing your model file"
+      });
+    }
     
     // Reset file input
     if (fileInputRef.current) {
@@ -140,78 +151,79 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
     fileInputRef.current?.click();
   };
 
-  const handleModelError = (modelId: string) => {
-    setModels(prev => prev.map(m => 
-      m.id === modelId ? { ...m, status: 'error' } : m
-    ));
-    
-    const model = models.find(m => m.id === modelId);
-    if (model) {
-      toast.error(`Failed to load ${model.name}`, {
-        description: "Check console for details or try again"
-      });
-    }
-  };
-
   return (
     <div className={cn("relative font-terminal", className)}>
-      <div className="absolute top-0 left-0 right-0 bg-cyberpunk-neon-purple h-5 flex items-center px-2">
+      <div className="absolute top-0 left-0 right-0 bg-cyberpunk-neon-purple h-5 flex items-center justify-between px-2">
         <div className="text-cyberpunk-dark text-xs font-pixel tracking-tighter">MODEL SELECTION</div>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-4 w-4 text-cyberpunk-dark hover:bg-transparent hover:text-cyberpunk-dark-blue p-0"
+          onClick={loadModels}
+          disabled={isLoading}
+        >
+          <RefreshCw className={cn("h-3 w-3", isLoading && "animate-spin")} />
+        </Button>
       </div>
       
       <div className="pt-6 p-2 grid gap-3 max-h-[500px] overflow-y-auto">
-        {models.map(model => (
-          <Card 
-            key={model.id}
-            className={cn(
-              "cursor-pointer border transition-all duration-200",
-              "bg-cyberpunk-dark-blue hover:bg-opacity-80 pixel-corners",
-              selectedModel === model.id 
-                ? "border-cyberpunk-neon-purple purple-glow" 
-                : "border-cyberpunk-neon-blue opacity-80",
-              model.status !== 'available' && "opacity-70 cursor-not-allowed"
-            )}
-            onClick={() => handleModelSelect(model)}
-          >
-            <div className="p-3 text-sm">
-              <div className="flex items-center justify-between">
-                <h3 className={cn(
-                  "font-bold",
-                  model.local ? "text-cyberpunk-neon-purple" : "text-cyberpunk-neon-blue" 
-                )}>
-                  {model.name}
-                  {model.parameters && <span className="ml-2 text-xs opacity-80">{model.parameters}</span>}
-                </h3>
-                <div className="text-xs">
-                  {model.status === 'available' && (
-                    <span className="text-cyberpunk-neon-green">● ONLINE</span>
-                  )}
-                  {model.status === 'downloading' && (
-                    <span className="text-yellow-400 animate-pulse">● DOWNLOADING</span>
-                  )}
-                  {model.status === 'error' && (
-                    <span className="text-cyberpunk-neon-pink flex items-center">
-                      <AlertTriangle className="h-3 w-3 mr-1" /> ERROR
-                    </span>
-                  )}
-                </div>
+        {models.length === 0 ? (
+          <div className="text-center text-cyberpunk-neon-purple p-4">
+            {isLoading ? (
+              <div className="animate-pulse">Loading models...</div>
+            ) : (
+              <div>
+                <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
+                <p>No models available</p>
+                <p className="text-xs mt-2">
+                  Make sure Ollama is running and connected
+                </p>
+                <Button
+                  variant="outline"
+                  className="mt-4 border-cyberpunk-neon-purple text-cyberpunk-neon-purple"
+                  onClick={loadModels}
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh Models
+                </Button>
               </div>
-              <p className="text-cyberpunk-neon-blue text-opacity-80 mt-1">{model.description}</p>
-              
-              {model.status === 'downloading' && model.progress !== undefined && (
-                <div className="mt-2">
-                  <div className="w-full h-2 bg-cyberpunk-dark">
-                    <div 
-                      className="h-full bg-yellow-400" 
-                      style={{ width: `${model.progress}%` }}
-                    ></div>
-                  </div>
-                  <div className="text-xs text-right mt-1 text-yellow-400">{model.progress}%</div>
-                </div>
+            )}
+          </div>
+        ) : (
+          models.map(model => (
+            <Card 
+              key={model.id}
+              className={cn(
+                "cursor-pointer border transition-all duration-200",
+                "bg-cyberpunk-dark-blue hover:bg-opacity-80 pixel-corners",
+                selectedModel === model.id 
+                  ? "border-cyberpunk-neon-purple purple-glow" 
+                  : "border-cyberpunk-neon-blue opacity-80"
               )}
-            </div>
-          </Card>
-        ))}
+              onClick={() => handleModelSelect(model)}
+            >
+              <div className="p-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-cyberpunk-neon-blue font-bold">
+                    {model.name}
+                    {model.parameters && (
+                      <span className="ml-2 text-xs opacity-80">{model.parameters}</span>
+                    )}
+                  </h3>
+                  <div className="text-xs">
+                    <span className="text-cyberpunk-neon-green">● ONLINE</span>
+                  </div>
+                </div>
+                
+                <p className="text-cyberpunk-neon-blue text-opacity-80 mt-1">
+                  {model.size > 0 
+                    ? `Size: ${(model.size / 1024 / 1024 / 1024).toFixed(1)} GB` 
+                    : `Format: ${model.format || 'GGUF'}`}
+                </p>
+              </div>
+            </Card>
+          ))
+        )}
         
         <input 
           type="file" 

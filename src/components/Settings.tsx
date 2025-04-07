@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
@@ -7,6 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { useTheme } from '@/contexts/ThemeContext';
+import { toast } from 'sonner';
+import { ollamaService } from '@/services/ollamaService';
 
 interface SettingsProps {
   className?: string;
@@ -14,6 +17,8 @@ interface SettingsProps {
 }
 
 const Settings: React.FC<SettingsProps> = ({ className, onSave }) => {
+  const { theme, setTheme, animationsEnabled, setAnimationsEnabled } = useTheme();
+  
   const [settings, setSettings] = useState({
     // Connection settings
     ollamaEndpoint: 'http://localhost:11434/api',
@@ -34,19 +39,52 @@ const Settings: React.FC<SettingsProps> = ({ className, onSave }) => {
     enableRagCapability: true,
     
     // UI settings
-    theme: 'cyberpunk',
-    enableAnimations: true,
+    theme: theme,
+    enableAnimations: animationsEnabled,
     logLevel: 'info',
+    
+    // Chat settings
+    autoRespond: false,
+    autoRespondDelay: 5,
+    chatMaxLength: 100,
   });
+
+  useEffect(() => {
+    setSettings(prev => ({
+      ...prev,
+      theme: theme,
+      enableAnimations: animationsEnabled
+    }));
+  }, [theme, animationsEnabled]);
 
   const handleSettingChange = (key: string, value: any) => {
     setSettings(prev => ({ ...prev, [key]: value }));
+    
+    // Apply theme and animation changes immediately
+    if (key === 'theme') {
+      setTheme(value);
+    } else if (key === 'enableAnimations') {
+      setAnimationsEnabled(value);
+    }
   };
 
   const handleSaveSettings = () => {
+    // Update Ollama endpoint
+    if (settings.ollamaEndpoint && settings.ollamaEndpoint.trim() !== '') {
+      (window as any).OLLAMA_BASE_URL = settings.ollamaEndpoint.trim();
+    }
+
+    // Apply theme settings
+    setTheme(settings.theme as 'cyberpunk' | 'terminal' | 'hacker');
+    setAnimationsEnabled(settings.enableAnimations);
+    
     if (onSave) {
       onSave(settings);
     }
+    
+    toast.success("Settings saved successfully", {
+      description: "Your preferences have been updated"
+    });
   };
 
   return (
@@ -153,6 +191,53 @@ const Settings: React.FC<SettingsProps> = ({ className, onSave }) => {
                   />
                   <div className="text-right text-xs">{settings.presencePenalty.toFixed(2)}</div>
                 </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Chat Settings */}
+          <div>
+            <h3 className="text-cyberpunk-neon-purple font-bold mb-3">CHAT SETTINGS</h3>
+            
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="autoRespond">Enable Auto-Response</Label>
+                <Switch
+                  id="autoRespond"
+                  checked={settings.autoRespond}
+                  onCheckedChange={(checked) => handleSettingChange('autoRespond', checked)}
+                  className="data-[state=checked]:bg-cyberpunk-neon-purple"
+                />
+              </div>
+              
+              {settings.autoRespond && (
+                <div className="grid gap-2">
+                  <Label htmlFor="autoRespondDelay">Auto-Response Delay (seconds)</Label>
+                  <Slider
+                    id="autoRespondDelay"
+                    value={[settings.autoRespondDelay]}
+                    min={1}
+                    max={30}
+                    step={1}
+                    onValueChange={(value) => handleSettingChange('autoRespondDelay', value[0])}
+                    className="py-4"
+                  />
+                  <div className="text-right text-xs">{settings.autoRespondDelay} sec</div>
+                </div>
+              )}
+              
+              <div className="grid gap-2">
+                <Label htmlFor="chatMaxLength">Max Chat History Length</Label>
+                <Slider
+                  id="chatMaxLength"
+                  value={[settings.chatMaxLength]}
+                  min={10}
+                  max={500}
+                  step={10}
+                  onValueChange={(value) => handleSettingChange('chatMaxLength', value[0])}
+                  className="py-4"
+                />
+                <div className="text-right text-xs">{settings.chatMaxLength} messages</div>
               </div>
             </div>
           </div>

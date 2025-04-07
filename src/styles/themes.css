@@ -1,0 +1,43 @@
+
+/* Base theme styles */
+body {
+  --primary-color: var(--cyberpunk-neon-green);
+  --secondary-color: var(--cyberpunk-neon-blue);
+  --accent-color: var(--cyberpunk-neon-pink);
+  --background-color: var(--cyberpunk-dark);
+  --text-color: var(--cyberpunk-neon-green);
+  --terminal-font: 'VT323', monospace;
+}
+
+/* Cyberpunk Theme - Default */
+body.theme-cyberpunk {
+  --primary-color: var(--cyberpunk-neon-green);
+  --secondary-color: var(--cyberpunk-neon-blue);
+  --accent-color: var(--cyberpunk-neon-purple);
+  --background-color: var(--cyberpunk-dark);
+  --text-color: var(--cyberpunk-neon-green);
+}
+
+/* Terminal Theme */
+body.theme-terminal {
+  --primary-color: #33ff33; /* Bright green */
+  --secondary-color: #ffffff; /* White */
+  --accent-color: #ffcc00; /* Yellow */
+  --background-color: #000000; /* Black */
+  --text-color: #33ff33; /* Bright green */
+}
+
+/* Hacker Theme */
+body.theme-hacker {
+  --primary-color: #0f0; /* Matrix green */
+  --secondary-color: #008f11; /* Darker matrix green */
+  --accent-color: #ff0000; /* Red */
+  --background-color: #0d0208; /* Very dark purple */
+  --text-color: #0f0; /* Matrix green */
+}
+
+/* Animation toggle */
+body.disable-animations * {
+  animation: none !important;
+  transition: none !important;
+}

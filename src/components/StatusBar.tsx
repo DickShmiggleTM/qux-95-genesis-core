@@ -2,12 +2,15 @@
 import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Cpu, HardDrive, Network, AlertTriangle, Server, Zap } from 'lucide-react';
+import { ollamaService } from '@/services/ollamaService';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface StatusBarProps {
   className?: string;
 }
 
 const StatusBar: React.FC<StatusBarProps> = ({ className }) => {
+  const { theme } = useTheme();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [statusIndicators, setStatusIndicators] = useState({
     cpu: getRandomInt(10, 60),
@@ -15,7 +18,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ className }) => {
     network: 'ONLINE',
     alerts: 0,
     modelStatus: 'OPTIMAL',
-    ollamaStatus: 'DISCONNECTED' // New status for Ollama connection
+    ollamaStatus: 'DISCONNECTED' // Initial status for Ollama connection
   });
 
   function getRandomInt(min: number, max: number) {
@@ -30,24 +33,29 @@ const StatusBar: React.FC<StatusBarProps> = ({ className }) => {
     
     // Simulate changing system stats
     const statsInterval = setInterval(() => {
-      setStatusIndicators(prev => ({
-        ...prev,
-        cpu: getRandomInt(10, 60),
-        memory: getRandomInt(20, 80),
-        network: Math.random() > 0.02 ? 'ONLINE' : 'DEGRADED',
-        alerts: Math.random() > 0.95 ? getRandomInt(1, 3) : prev.alerts,
-        modelStatus: Math.random() > 0.05 ? 'OPTIMAL' : 'LEARNING',
-        ollamaStatus: Math.random() > 0.1 ? 'CONNECTED' : 'ATTEMPTING'
-      }));
+      // Check real Ollama connection status
+      ollamaService.checkConnection().then(connected => {
+        const ollamaStatus = connected ? 'CONNECTED' : 'DISCONNECTED';
+        
+        setStatusIndicators(prev => ({
+          ...prev,
+          cpu: getRandomInt(10, 60),
+          memory: getRandomInt(20, 80),
+          network: Math.random() > 0.02 ? 'ONLINE' : 'DEGRADED',
+          alerts: Math.random() > 0.95 ? getRandomInt(1, 3) : prev.alerts,
+          modelStatus: Math.random() > 0.05 ? 'OPTIMAL' : 'LEARNING',
+          ollamaStatus
+        }));
+      });
     }, 5000);
     
-    // Simulate Ollama connection attempt on component mount
-    setTimeout(() => {
+    // Check Ollama connection on component mount
+    ollamaService.checkConnection().then(connected => {
       setStatusIndicators(prev => ({
         ...prev,
-        ollamaStatus: 'CONNECTED'
+        ollamaStatus: connected ? 'CONNECTED' : 'DISCONNECTED'
       }));
-    }, 2000);
+    });
     
     return () => {
       clearInterval(clockInterval);
@@ -87,10 +95,25 @@ const StatusBar: React.FC<StatusBarProps> = ({ className }) => {
     }
   };
 
+  // Apply theme-specific colors
+  const getThemeColor = () => {
+    switch (theme) {
+      case 'cyberpunk':
+        return 'border-cyberpunk-neon-green shadow-[0_0_8px_rgba(0,255,65,0.3)]';
+      case 'terminal':
+        return 'border-[#33ff33] shadow-[0_0_8px_rgba(51,255,51,0.3)]';
+      case 'hacker':
+        return 'border-[#0f0] shadow-[0_0_8px_rgba(0,255,0,0.3)]';
+      default:
+        return 'border-cyberpunk-neon-green shadow-[0_0_8px_rgba(0,255,65,0.3)]';
+    }
+  };
+
   return (
     <div className={cn(
-      "flex items-center justify-between px-3 py-1 bg-cyberpunk-dark border-t border-cyberpunk-neon-green",
-      "text-xs font-terminal text-cyberpunk-neon-green shadow-[0_0_8px_rgba(0,255,65,0.3)]",
+      "flex items-center justify-between px-3 py-1 bg-cyberpunk-dark border-t",
+      "text-xs font-terminal",
+      getThemeColor(),
       className
     )}>
       <div className="flex items-center space-x-4">

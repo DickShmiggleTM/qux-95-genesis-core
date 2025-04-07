@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from "sonner";
+import { ollamaService, OllamaModel } from '@/services/ollamaService';
+import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 
 // Define the available tabs for the main interface
 type TabType = 'terminal' | 'chat' | 'code' | 'settings' | 'rag' | 'image-gen' | 'prompt-edit';
@@ -34,20 +36,41 @@ const Dashboard = () => {
   const [isSelfModifying, setIsSelfModifying] = useState(false);
   const [systemStatus, setSystemStatus] = useState('ONLINE');
   const [isOllamaConnected, setIsOllamaConnected] = useState(false);
+  const [currentModel, setCurrentModel] = useState<OllamaModel | null>(null);
+  const [autoMode, setAutoMode] = useState(false);
+  const [autoModeCounter, setAutoModeCounter] = useState(0);
   
-  // Simulate Ollama connection on startup
+  // Connect to Ollama on startup
   useEffect(() => {
     const connectToOllama = async () => {
       try {
-        // Simulate connection delay
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        setIsOllamaConnected(false);
         
-        setIsOllamaConnected(true);
-        toast.success("Connected to Ollama successfully", {
-          description: "Local Ollama instance detected and connected"
-        });
+        // Initialize Ollama service
+        const connected = await ollamaService.init();
+        setIsOllamaConnected(connected);
+        
+        if (connected) {
+          // Get available models
+          const models = ollamaService.getModels();
+          
+          if (models.length > 0) {
+            setCurrentModel(models[0]);
+            ollamaService.setCurrentModel(models[0].id);
+          }
+          
+          toast.success("Connected to Ollama successfully", {
+            description: "Local Ollama instance detected and connected"
+          });
+        } else {
+          toast.error("Failed to connect to Ollama", {
+            description: "Make sure Ollama is running locally"
+          });
+        }
       } catch (error) {
         console.error("Failed to connect to Ollama:", error);
+        setIsOllamaConnected(false);
+        
         toast.error("Failed to connect to Ollama", {
           description: "Please ensure Ollama is running locally"
         });
@@ -55,30 +78,151 @@ const Dashboard = () => {
     };
     
     connectToOllama();
+    
+    // Set up system heartbeat
+    const intervalId = setInterval(() => {
+      ollamaService.checkConnection().then(connected => {
+        setIsOllamaConnected(connected);
+      });
+    }, 30000);
+    
+    return () => clearInterval(intervalId);
   }, []);
+  
+  // Autonomous mode functionality
+  useEffect(() => {
+    if (!autoMode) return;
+    
+    const autoInterval = setInterval(() => {
+      setAutoModeCounter(prev => prev + 1);
+      
+      // Every 5 cycles, perform an autonomous action
+      if (autoModeCounter % 5 === 0) {
+        const actions = [
+          () => runAutonomousCommand("Analyzing system performance..."),
+          () => setIsSelfModifying(true),
+          () => toast.info("QUX-95 Auto-optimization", {
+            description: "Adjusting parameters for optimal performance"
+          }),
+          () => runAutonomousCommand("Scanning for potential improvements...")
+        ];
+        
+        // Select a random action
+        const randomAction = actions[Math.floor(Math.random() * actions.length)];
+        randomAction();
+      }
+    }, 10000);
+    
+    return () => clearInterval(autoInterval);
+  }, [autoMode, autoModeCounter]);
 
-  const handleTerminalCommand = (command: string) => {
+  const runAutonomousCommand = (message: string) => {
+    toast.info("QUX-95 Autonomous Action", {
+      description: message
+    });
+    
+    return message;
+  };
+
+  const handleTerminalCommand = async (command: string) => {
     console.log('Terminal command:', command);
     
-    if (command.toLowerCase() === 'status') {
-      return `System Status: ${systemStatus}\nOllama Connection: ${isOllamaConnected ? 'CONNECTED' : 'DISCONNECTED'}`;
-    }
+    // Process command
+    const parts = command.toLowerCase().split(' ');
+    const cmd = parts[0];
+    const args = parts.slice(1);
     
-    if (command.toLowerCase() === 'connect ollama') {
-      if (isOllamaConnected) {
-        return 'Already connected to Ollama.';
-      }
-      
-      setIsOllamaConnected(true);
-      return 'Connecting to Ollama... Connection successful.';
+    switch (cmd) {
+      case 'status':
+        return `System Status: ${systemStatus}
+Ollama Connection: ${isOllamaConnected ? 'CONNECTED' : 'DISCONNECTED'}
+Current Model: ${currentModel?.name || 'None'}
+Autonomous Mode: ${autoMode ? 'ENABLED' : 'DISABLED'}`;
+
+      case 'connect':
+        if (args[0] === 'ollama') {
+          try {
+            const connected = await ollamaService.init();
+            setIsOllamaConnected(connected);
+            
+            if (connected) {
+              return 'Successfully connected to Ollama.';
+            } else {
+              return 'Failed to connect to Ollama. Is it running?';
+            }
+          } catch (error) {
+            return `Error connecting to Ollama: ${error instanceof Error ? error.message : String(error)}`;
+          }
+        }
+        return `Usage: connect ollama`;
+
+      case 'auto':
+        if (args[0] === 'on' || args[0] === 'enable') {
+          setAutoMode(true);
+          return 'Autonomous mode enabled.';
+        } else if (args[0] === 'off' || args[0] === 'disable') {
+          setAutoMode(false);
+          return 'Autonomous mode disabled.';
+        }
+        return `Autonomous mode is currently ${autoMode ? 'ENABLED' : 'DISABLED'}.
+Usage: auto [on|off|enable|disable]`;
+
+      case 'models':
+        const models = ollamaService.getModels();
+        if (models.length === 0) {
+          return 'No models available. Make sure Ollama is connected.';
+        }
+        return `Available models:\n${models.map(m => `- ${m.name} (${m.parameters})`).join('\n')}`;
+
+      case 'model':
+        if (args.length === 0) {
+          return `Current model: ${currentModel?.name || 'None'}`;
+        }
+        
+        const modelName = args.join(' ');
+        const models2 = ollamaService.getModels();
+        const model = models2.find(m => m.name.toLowerCase() === modelName.toLowerCase());
+        
+        if (model) {
+          setCurrentModel(model);
+          ollamaService.setCurrentModel(model.id);
+          return `Model set to ${model.name}`;
+        } else {
+          return `Model "${modelName}" not found. Use 'models' to see available models.`;
+        }
+
+      case 'modify':
+      case 'self-modify':
+        setIsSelfModifying(true);
+        return 'Initiating self-modification sequence...';
+
+      case 'exec':
+        if (args.length === 0) {
+          return 'Usage: exec <command>';
+        }
+        // Simulate code execution
+        await new Promise(r => setTimeout(r, 500));
+        return `Executed: ${args.join(' ')}\nReturn code: 0`;
+
+      case 'help':
+        return `
+Available commands:
+  status               - Show system status
+  connect ollama       - Connect to Ollama
+  auto [on|off]        - Toggle autonomous mode
+  models               - List available models
+  model [name]         - Get or set current model
+  modify               - Start self-modification
+  self-modify          - Same as 'modify'
+  exec <command>       - Execute a system command
+  help                 - Show this help message
+  clear                - Clear terminal
+`;
+
+      default:
+        return `Unknown command: ${command}
+Type 'help' for available commands.`;
     }
-    
-    if (command.toLowerCase() === 'modify' || command.toLowerCase().includes('self-mod')) {
-      setIsSelfModifying(true);
-      return 'Initiating self-modification sequence...';
-    }
-    
-    return `Command '${command}' not recognized. Type 'help' for available commands.`;
   };
 
   const handleSelfModificationComplete = () => {
@@ -88,7 +232,9 @@ const Dashboard = () => {
     });
   };
 
-  const handleModelSelect = (model: any) => {
+  const handleModelSelect = (model: OllamaModel) => {
+    setCurrentModel(model);
+    
     toast.success(`Model ${model.name} selected`, {
       description: `${model.parameters} parameters loaded successfully`
     });
@@ -103,6 +249,7 @@ const Dashboard = () => {
         description: "All subsystems online and operational"
       });
     } else {
+      setAutoMode(false);
       toast.error("System deactivated", {
         description: "Core functions are now offline"
       });
@@ -151,6 +298,22 @@ const Dashboard = () => {
             
             <Button
               size="sm"
+              variant={autoMode ? "default" : "outline"}
+              className={cn(
+                "text-xs",
+                autoMode ? 
+                  "bg-cyberpunk-neon-purple text-cyberpunk-dark border-cyberpunk-neon-purple" :
+                  "border-cyberpunk-neon-purple text-cyberpunk-neon-purple"
+              )}
+              disabled={systemStatus === 'OFFLINE'}
+              onClick={() => setAutoMode(!autoMode)}
+            >
+              <Database className="h-3 w-3 mr-1" />
+              {autoMode ? 'AUTO: ON' : 'AUTO: OFF'}
+            </Button>
+            
+            <Button
+              size="sm"
               variant="outline"
               className={cn(
                 "text-xs",
@@ -158,10 +321,23 @@ const Dashboard = () => {
                   ? "border-cyberpunk-neon-green text-cyberpunk-neon-green" 
                   : "border-red-500 text-red-500"
               )}
-              disabled={true}
+              onClick={async () => {
+                const connected = await ollamaService.checkConnection();
+                setIsOllamaConnected(connected);
+                
+                if (connected) {
+                  toast.success("Ollama connection verified", {
+                    description: "Connection is active and working properly"
+                  });
+                } else {
+                  toast.error("Ollama connection failed", {
+                    description: "Unable to connect to Ollama service"
+                  });
+                }
+              }}
             >
               <Database className="h-3 w-3 mr-1" />
-              {isOllamaConnected ? 'OLLAMA CONNECTED' : 'CONNECTING TO OLLAMA...'}
+              {isOllamaConnected ? 'OLLAMA CONNECTED' : 'OLLAMA DISCONNECTED'}
             </Button>
           </div>
         </div>
@@ -287,7 +463,7 @@ const Dashboard = () => {
             )}
             
             {activeTab === 'chat' && (
-              <ChatWindow className="h-[calc(100vh-10rem)]" />
+              <ChatWindow className="h-[calc(100vh-10rem)]" modelName={currentModel?.name || "QUX-95"} />
             )}
             
             {activeTab === 'code' && (
@@ -330,4 +506,12 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+const DashboardWithTheme = () => {
+  return (
+    <ThemeProvider>
+      <Dashboard />
+    </ThemeProvider>
+  );
+};
+
+export default DashboardWithTheme;

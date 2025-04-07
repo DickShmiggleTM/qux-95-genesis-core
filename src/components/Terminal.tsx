@@ -1,12 +1,13 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface TerminalProps {
   className?: string;
   prompt?: string;
   initialMessages?: string[];
-  onCommand?: (command: string) => void;
+  onCommand?: (command: string) => void | string | Promise<string | void>;
   height?: string;
 }
 
@@ -21,6 +22,7 @@ const Terminal: React.FC<TerminalProps> = ({
   const [history, setHistory] = useState<string[]>([...initialMessages]);
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const [isProcessing, setIsProcessing] = useState(false);
   const terminalRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -35,25 +37,88 @@ const Terminal: React.FC<TerminalProps> = ({
     }
   }, [history]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputValue.trim()) return;
+  // Built-in terminal commands
+  const builtInCommands: Record<string, (args: string[]) => string> = {
+    help: () => {
+      return `
+Available commands:
+  help                 - Show this help message
+  clear                - Clear the terminal
+  echo <text>          - Print text
+  status               - Show system status
+  model <name>         - Set current model
+  models               - List available models
+  exec <command>       - Execute system command
+  self-modify          - Activate self-modification
+  connection           - Check Ollama connection status
+`;
+    },
+    clear: () => {
+      setHistory([]);
+      return "";
+    },
+    echo: (args) => {
+      return args.join(" ");
+    }
+  };
+
+  const addToHistory = (text: string) => {
+    setHistory((prev) => [...prev, text]);
+  };
+
+  const executeCommand = async (command: string) => {
+    if (!command.trim()) return;
     
-    // Add command to history
-    const newHistory = [...history, `${prompt} ${inputValue}`];
-    setHistory(newHistory);
+    // Add command to history display
+    addToHistory(`${prompt} ${command}`);
+    
+    // Parse command and arguments
+    const parts = command.split(" ");
+    const cmd = parts[0].toLowerCase();
+    const args = parts.slice(1);
+    
+    // Check for built-in command
+    if (builtInCommands[cmd]) {
+      const result = builtInCommands[cmd](args);
+      if (result) {
+        addToHistory(result);
+      }
+      return;
+    }
+
+    // External command handler
+    if (onCommand) {
+      setIsProcessing(true);
+      try {
+        const result = await onCommand(command);
+        if (result) {
+          addToHistory(result.toString());
+        }
+      } catch (error) {
+        console.error("Command execution error:", error);
+        addToHistory(`Error: ${error instanceof Error ? error.message : String(error)}`);
+      } finally {
+        setIsProcessing(false);
+      }
+    } else {
+      // Default response if no handler
+      addToHistory(`Command not recognized: ${command}`);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isProcessing || !inputValue.trim()) return;
     
     // Add to command history for up/down navigation
     setCommandHistory([inputValue, ...commandHistory].slice(0, 50));
     setHistoryIndex(-1);
     
-    // Call onCommand callback
-    if (onCommand) {
-      onCommand(inputValue);
-    }
-    
-    // Clear input
+    const command = inputValue;
     setInputValue("");
+    
+    // Execute command
+    await executeCommand(command);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -80,16 +145,33 @@ const Terminal: React.FC<TerminalProps> = ({
       }
     }
 
-    // Tab completion (simplified)
+    // Tab completion
     if (e.key === "Tab") {
       e.preventDefault();
-      // Simple tab completion - this would normally check available commands
-      const possibleCommands = ["help", "status", "connect", "model", "chat", "settings", "clear", "exit"];
-      const match = possibleCommands.find(cmd => cmd.startsWith(inputValue.toLowerCase()));
-      if (match) {
-        setInputValue(match);
+      const possibleCommands = [
+        "help", "status", "connect", "model", "chat", "settings", "clear", 
+        "exit", "exec", "self-modify", "connection", "models", "echo"
+      ];
+      
+      const matchingCommands = possibleCommands.filter(
+        cmd => cmd.startsWith(inputValue.toLowerCase().split(" ")[0])
+      );
+      
+      if (matchingCommands.length === 1) {
+        // Single match - complete the command
+        setInputValue(matchingCommands[0]);
+      } else if (matchingCommands.length > 1) {
+        // Multiple matches - show options
+        addToHistory(`${prompt} ${inputValue}`);
+        addToHistory(`Possible completions: ${matchingCommands.join(", ")}`);
       }
     }
+  };
+  
+  // Run system commands automatically
+  const runSystemCommand = async (command: string) => {
+    addToHistory(`SYSTEM: ${command}`);
+    await executeCommand(command);
   };
 
   return (
@@ -110,7 +192,7 @@ const Terminal: React.FC<TerminalProps> = ({
         onClick={() => inputRef.current?.focus()}
       >
         {history.map((line, index) => (
-          <div key={index} className="terminal-text-output mb-1">
+          <div key={index} className="terminal-text-output mb-1 whitespace-pre-wrap">
             {line}
           </div>
         ))}
@@ -125,8 +207,14 @@ const Terminal: React.FC<TerminalProps> = ({
             className="flex-1 bg-transparent border-none outline-none text-cyberpunk-neon-green terminal-text-input"
             autoComplete="off"
             spellCheck="false"
+            disabled={isProcessing}
           />
         </form>
+        {isProcessing && (
+          <div className="text-cyberpunk-neon-green animate-pulse">
+            Processing...
+          </div>
+        )}
       </div>
     </div>
   );
