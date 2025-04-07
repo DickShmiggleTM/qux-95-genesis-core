@@ -1,5 +1,4 @@
-
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { ollamaService } from '@/services/ollamaService';
@@ -13,14 +12,22 @@ interface TerminalProps {
   autoMode?: boolean;
 }
 
-const Terminal: React.FC<TerminalProps> = ({
+// Create a proper interface for the ref
+export interface TerminalRefHandle {
+  executeCommand: (cmd: string) => Promise<void>;
+}
+
+// Use forwardRef to explicitly type the ref
+const Terminal = forwardRef<TerminalRefHandle, TerminalProps>(({
   className,
   prompt = "QUX-95>",
   initialMessages = [],
   onCommand,
   height = "h-64",
   autoMode = false
-}) => {
+}, ref) => {
+  
+
   const [inputValue, setInputValue] = useState("");
   const [history, setHistory] = useState<string[]>([...initialMessages]);
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
@@ -29,6 +36,8 @@ const Terminal: React.FC<TerminalProps> = ({
   const terminalRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const autoModeInterval = useRef<NodeJS.Timeout | null>(null);
+
+  
 
   useEffect(() => {
     // Scroll to bottom when history changes
@@ -77,7 +86,8 @@ const Terminal: React.FC<TerminalProps> = ({
     };
   }, [autoMode]);
 
-  // Built-in terminal commands
+  
+
   const builtInCommands: Record<string, (args: string[]) => string | Promise<string>> = {
     help: () => {
       return `
@@ -308,13 +318,14 @@ Memory Status: ACTIVE
     }
   };
   
-  // Access for programmatic command execution
-  React.useImperativeHandle(
-    (window as any).terminalRef = {},
-    () => ({
-      executeCommand: (cmd: string) => executeCommand(cmd)
-    })
-  );
+  // Properly expose the executeCommand method via useImperativeHandle
+  useImperativeHandle(ref, () => ({
+    executeCommand
+  }));
+
+  // Remove the window global reference that was causing the error
+  // The following line was causing the error - it's been replaced with a proper ref implementation above
+  // React.useImperativeHandle((window as any).terminalRef = {}, () => ({ executeCommand: (cmd: string) => executeCommand(cmd) }));
 
   return (
     <div 
@@ -360,6 +371,9 @@ Memory Status: ACTIVE
       </div>
     </div>
   );
-};
+});
+
+// Add display name for React DevTools
+Terminal.displayName = 'Terminal';
 
 export default Terminal;
