@@ -1,4 +1,5 @@
 import { toast } from "sonner";
+import { saveSystem } from "./saveSystem";
 
 export interface OllamaModel {
   id: string;
@@ -34,6 +35,23 @@ export interface OllamaExecRequest {
   model: string;
 }
 
+export interface HardwareInfo {
+  gpu: {
+    available: boolean;
+    name: string | null;
+    vramTotal: number | null; // in MB
+    vramFree: number | null; // in MB
+  };
+  cpu: {
+    cores: number;
+    model: string | null;
+  };
+  ram: {
+    total: number; // in MB
+    free: number; // in MB
+  };
+}
+
 const OLLAMA_BASE_URL = 'http://localhost:11434/api';
 
 class OllamaService {
@@ -43,18 +61,106 @@ class OllamaService {
   private memory: Record<string, any> = {};
   private contextWindow: any[] = [];
   private sessionId: string = `session-${Date.now()}`;
+  private hardwareInfo: HardwareInfo = {
+    gpu: {
+      available: false,
+      name: null,
+      vramTotal: null,
+      vramFree: null
+    },
+    cpu: {
+      cores: navigator.hardwareConcurrency || 4,
+      model: null
+    },
+    ram: {
+      total: 0,
+      free: 0
+    }
+  };
+  
+  private reasoningEnabled: boolean = false;
 
   async init(): Promise<boolean> {
     try {
       const result = await this.checkConnection();
       if (result) {
         await this.loadAvailableModels();
+        await this.detectHardware();
+        
+        // Attempt to restore memory from saved state
+        const savedState = saveSystem.loadSystemState();
+        if (savedState?.memory) {
+          this.memory = savedState.memory;
+        }
+        if (savedState?.context) {
+          this.contextWindow = savedState.context;
+        }
       }
       return result;
     } catch (error) {
       console.error("Failed to initialize Ollama service:", error);
       return false;
     }
+  }
+  
+  private async detectHardware(): Promise<void> {
+    try {
+      // In a real implementation, we would check for CUDA availability through the Ollama API
+      // For now, we'll simulate this check
+      const simulateGpuCheck = async (): Promise<boolean> => {
+        // This would be an actual API call to check hardware
+        try {
+          const response = await fetch(`${OLLAMA_BASE_URL}/hardware`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+          }).catch(() => null);
+          
+          // Simulate positive response for demonstration
+          if (!response) {
+            // If API endpoint doesn't exist (which it likely doesn't in current Ollama)
+            // Use a reasonable guess based on User Agent or other factors
+            const userAgent = navigator.userAgent.toLowerCase();
+            const probablyHasGpu = userAgent.includes('nvidia') || 
+                                 userAgent.includes('amd') || 
+                                 userAgent.includes('radeon') || 
+                                 userAgent.includes('geforce');
+            
+            return probablyHasGpu;
+          }
+          
+          return true;
+        } catch {
+          return false;
+        }
+      };
+      
+      const gpuAvailable = await simulateGpuCheck();
+      
+      this.hardwareInfo = {
+        gpu: {
+          available: gpuAvailable,
+          name: gpuAvailable ? "GPU Detected (CUDA/Metal)" : null,
+          vramTotal: gpuAvailable ? 8192 : null, // Simulate 8GB VRAM
+          vramFree: gpuAvailable ? 6144 : null  // Simulate 6GB free
+        },
+        cpu: {
+          cores: navigator.hardwareConcurrency || 4,
+          model: "CPU Detected"
+        },
+        ram: {
+          total: 16384, // Simulate 16GB RAM
+          free: 8192    // Simulate 8GB free
+        }
+      };
+      
+      console.log("Hardware detection result:", this.hardwareInfo);
+    } catch (error) {
+      console.error("Hardware detection failed:", error);
+    }
+  }
+
+  getHardwareInfo(): HardwareInfo {
+    return this.hardwareInfo;
   }
 
   async checkConnection(): Promise<boolean> {
@@ -434,6 +540,89 @@ class OllamaService {
   
   getSessionId(): string {
     return this.sessionId;
+  }
+  
+  // Add reasoning capability
+  enableReasoning(enabled: boolean): void {
+    this.reasoningEnabled = enabled;
+  }
+  
+  isReasoningEnabled(): boolean {
+    return this.reasoningEnabled;
+  }
+  
+  async generateChatCompletionWithReasoning(
+    messages: Array<{role: string, content: string}>,
+    model: string,
+    options?: {
+      temperature?: number;
+      max_tokens?: number;
+    }
+  ): Promise<{response: string, reasoning?: string}> {
+    try {
+      if (!this.reasoningEnabled) {
+        // If reasoning is disabled, just return the regular response
+        const response = await this.generateChatCompletion(messages, model, options);
+        return { response };
+      }
+      
+      // Add reasoning instruction to the system message
+      const messagesWithReasoningPrompt = messages.map(msg => {
+        if (msg.role === 'system') {
+          return {
+            role: 'system',
+            content: `${msg.content}\n\nPlease think step by step and provide your reasoning before giving your final answer. Start with "Reasoning:" and end with "Answer:".`
+          };
+        }
+        return msg;
+      });
+      
+      // If there's no system message, add one
+      if (!messages.some(msg => msg.role === 'system')) {
+        messagesWithReasoningPrompt.unshift({
+          role: 'system',
+          content: 'Please think step by step and provide your reasoning before giving your final answer. Start with "Reasoning:" and end with "Answer:".'
+        });
+      }
+      
+      const fullResponse = await this.generateChatCompletion(messagesWithReasoningPrompt, model, options);
+      
+      // Parse response to separate reasoning and answer
+      let reasoning = '';
+      let answer = fullResponse;
+      
+      if (fullResponse.includes('Reasoning:') && fullResponse.includes('Answer:')) {
+        const reasoningMatch = fullResponse.match(/Reasoning:(.*?)Answer:/s);
+        const answerMatch = fullResponse.match(/Answer:(.*?)$/s);
+        
+        if (reasoningMatch && reasoningMatch[1]) {
+          reasoning = reasoningMatch[1].trim();
+        }
+        
+        if (answerMatch && answerMatch[1]) {
+          answer = answerMatch[1].trim();
+        }
+      }
+      
+      return {
+        response: answer,
+        reasoning: reasoning
+      };
+    } catch (error) {
+      console.error("Error generating chat completion with reasoning:", error);
+      return {
+        response: "Error: Could not generate response with reasoning",
+        reasoning: "Reasoning process failed due to an error."
+      };
+    }
+  }
+
+  async saveState(): Promise<boolean> {
+    return saveSystem.saveSystemState(true, {
+      memory: this.memory,
+      context: this.contextWindow,
+      chatHistory: [] // This would be populated from the ChatWindow component
+    });
   }
   
   // Self-modification capabilities

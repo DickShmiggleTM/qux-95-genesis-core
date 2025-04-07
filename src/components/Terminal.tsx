@@ -26,8 +26,6 @@ const Terminal = forwardRef<TerminalRefHandle, TerminalProps>(({
   height = "h-64",
   autoMode = false
 }, ref) => {
-  
-
   const [inputValue, setInputValue] = useState("");
   const [history, setHistory] = useState<string[]>([...initialMessages]);
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
@@ -36,8 +34,6 @@ const Terminal = forwardRef<TerminalRefHandle, TerminalProps>(({
   const terminalRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const autoModeInterval = useRef<NodeJS.Timeout | null>(null);
-
-  
 
   useEffect(() => {
     // Scroll to bottom when history changes
@@ -85,8 +81,6 @@ const Terminal = forwardRef<TerminalRefHandle, TerminalProps>(({
       }
     };
   }, [autoMode]);
-
-  
 
   const builtInCommands: Record<string, (args: string[]) => string | Promise<string>> = {
     help: () => {
