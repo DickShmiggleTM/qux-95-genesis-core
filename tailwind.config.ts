@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,7 +62,18 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+				// Cyberpunk theme colors
+				cyberpunk: {
+					'dark': '#0D0221',
+					'dark-blue': '#1F2041',
+					'neon-green': '#00FF41',
+					'neon-blue': '#0AFFFF',
+					'neon-purple': '#9D00FF',
+					'neon-pink': '#FF00A0',
+					'terminal-green': '#33FF33',
+					'grid': '#1A3A3A',
+				},
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
@@ -70,26 +82,61 @@ export default {
 			},
 			keyframes: {
 				'accordion-down': {
-					from: {
-						height: '0'
-					},
-					to: {
-						height: 'var(--radix-accordion-content-height)'
-					}
+					from: { height: '0' },
+					to: { height: 'var(--radix-accordion-content-height)' }
 				},
 				'accordion-up': {
-					from: {
-						height: 'var(--radix-accordion-content-height)'
-					},
-					to: {
-						height: '0'
-					}
+					from: { height: 'var(--radix-accordion-content-height)' },
+					to: { height: '0' }
+				},
+				blink: {
+					'0%, 100%': { opacity: '1' },
+					'50%': { opacity: '0' },
+				},
+				scanline: {
+					'0%': { transform: 'translateY(0)' },
+					'100%': { transform: 'translateY(100%)' },
+				},
+				typing: {
+					'0%': { width: '0' },
+					'100%': { width: '100%' },
+				},
+				flicker: {
+					'0%, 100%': { opacity: '1' },
+					'10%, 30%, 50%, 70%, 90%': { opacity: '0.8' },
+					'20%, 40%, 60%, 80%': { opacity: '0.9' },
+				},
+				glitch: {
+					'0%, 100%': { transform: 'translate(0)' },
+					'20%': { transform: 'translate(-2px, 2px)' },
+					'40%': { transform: 'translate(2px, -2px)' },
+					'60%': { transform: 'translate(-2px, -2px)' },
+					'80%': { transform: 'translate(2px, 2px)' },
+				},
+				pulse: {
+					'0%, 100%': { opacity: '1' },
+					'50%': { opacity: '0.5' },
+				},
+				progress: {
+					'0%': { width: '0%' },
+					'100%': { width: '100%' },
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
-			}
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'blink': 'blink 1s step-end infinite',
+				'scanline': 'scanline 8s linear infinite',
+				'typing': 'typing 3.5s steps(40, end)',
+				'flicker': 'flicker 0.5s linear infinite',
+				'glitch': 'glitch 0.3s ease infinite',
+				'pulse': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+				'progress': 'progress 2s ease-in-out forwards'
+			},
+			fontFamily: {
+				'terminal': ['VT323', 'monospace', 'ui-monospace', 'SFMono-Regular'],
+				'pixel': ['Press Start 2P', 'cursive'],
+			},
 		}
 	},
 	plugins: [require("tailwindcss-animate")],
