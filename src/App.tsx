@@ -77,11 +77,14 @@ const queryClient = new QueryClient({
       staleTime: 60 * 1000, // 1 minute
       retry: 2,
       refetchOnWindowFocus: false,
-      onError: (error) => {
-        console.error('Query error:', error);
-        toast.error("Data fetch failed", {
-          description: "There was a problem retrieving data"
-        });
+      // Updated error handling - using onSettled instead of onError
+      onSettled: (data, error) => {
+        if (error) {
+          console.error('Query error:', error);
+          toast.error("Data fetch failed", {
+            description: "There was a problem retrieving data"
+          });
+        }
       }
     },
   },
