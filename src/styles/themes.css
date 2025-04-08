@@ -41,7 +41,7 @@ body.theme-terminal {
   --text-color: #33ff33; /* Bright green */
 }
 
-/* Hacker Theme */
+/* Hacker Theme - Now with enhanced Dark Mode */
 body.theme-hacker {
   --cyberpunk-dark: #0d0208;
   --cyberpunk-dark-blue: #071408;
@@ -55,6 +55,39 @@ body.theme-hacker {
   --accent-color: #ff0000; /* Red */
   --background-color: #0d0208; /* Very dark purple */
   --text-color: #0f0; /* Matrix green */
+}
+
+/* Dark mode styles for Hacker theme */
+:root.dark {
+  --background: 240 10% 3.9%;
+  --foreground: 120 100% 95.1%;
+
+  --card: 240 10% 3.9%;
+  --card-foreground: 0 0% 95%;
+
+  --popover: 240 10% 3.9%;
+  --popover-foreground: 0 0% 95%;
+
+  --primary: 120 100% 50%;
+  --primary-foreground: 240 5.9% 10%;
+
+  --secondary: 240 3.7% 15.9%;
+  --secondary-foreground: 0 0% 98%;
+
+  --muted: 240 3.7% 15.9%;
+  --muted-foreground: 240 5% 64.9%;
+
+  --accent: 240 3.7% 15.9%;
+  --accent-foreground: 0 0% 98%;
+
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+
+  --border: 240 3.7% 15.9%;
+  --input: 240 3.7% 15.9%;
+  --ring: 240 4.9% 83.9%;
+
+  --radius: 0.5rem;
 }
 
 /* Animation toggle */
@@ -227,4 +260,34 @@ body.theme-hacker .typing-cursor {
 
 .font-terminal {
   font-family: var(--terminal-font);
+}
+
+/* Hacker theme specific styles for dark mode */
+.dark body.theme-hacker .bg-cyberpunk-dark {
+  background-color: #000000;
+}
+
+.dark body.theme-hacker .bg-cyberpunk-dark-blue {
+  background-color: #001100;
+}
+
+.dark body.theme-hacker {
+  background-color: #000000;
+  background-image: 
+    linear-gradient(0deg, rgba(0, 0, 0, 0.97) 0%, rgba(0, 0, 0, 0.97) 100%),
+    repeating-linear-gradient(
+      0deg,
+      rgba(0, 255, 0, 0.03) 0px,
+      rgba(0, 255, 0, 0.03) 1px,
+      transparent 1px,
+      transparent 2px
+    );
+}
+
+/* Glass card styling for dark mode */
+.dark .glass-card {
+  background-color: rgba(10, 10, 10, 0.3);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 255, 0, 0.1);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 255, 0, 0.05);
 }

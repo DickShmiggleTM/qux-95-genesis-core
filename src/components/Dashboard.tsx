@@ -10,6 +10,9 @@ import Settings from './Settings';
 import DocumentRag from './DocumentRag';
 import ImageGeneration from './ImageGeneration';
 import PromptEditor from './PromptEditor';
+import WorkspaceBrowser from './WorkspaceBrowser';
+import GitHubManager from './GitHubManager';
+import LearningSystem from './LearningSystem';
 import { Button } from '@/components/ui/button';
 import { 
   TerminalSquare, 
@@ -21,7 +24,12 @@ import {
   Power,
   FileText,
   Image,
-  Edit
+  Edit,
+  Folder,
+  Github,
+  Brain,
+  Moon,
+  Sun
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from "sonner";
@@ -29,12 +37,15 @@ import { ollamaService, OllamaModel } from '@/services/ollamaService';
 import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { checkHardwareCapabilities, executeSystemCommand } from '@/utils/systemUtils';
 import { reasoningSystem } from '@/services/reasoningSystem';
+import { workspaceService } from '@/services/workspaceService';
+import { githubService } from '@/services/githubService';
+import { learningService } from '@/services/learningService';
 
 // Define the available tabs for the main interface
-type TabType = 'terminal' | 'chat' | 'code' | 'settings' | 'rag' | 'image-gen' | 'prompt-edit';
+type TabType = 'terminal' | 'chat' | 'code' | 'settings' | 'rag' | 'image-gen' | 'prompt-edit' | 'workspace' | 'github' | 'learning';
 
 const Dashboard = () => {
-  const { theme } = useTheme();
+  const { theme, setTheme, isDarkMode, toggleDarkMode } = useTheme();
   const [activeTab, setActiveTab] = useState<TabType>('chat');
   const [isSelfModifying, setIsSelfModifying] = useState(false);
   const [systemStatus, setSystemStatus] = useState('ONLINE');
@@ -71,6 +82,13 @@ const Dashboard = () => {
           
           // Enable reasoning system by default
           reasoningSystem.enable();
+          
+          // Initialize the workspace
+          const workspaceStats = workspaceService.getStats();
+          console.log("Workspace initialized:", workspaceStats);
+          
+          // Enable learning system by default
+          learningService.enable();
         } else {
           toast.error("Failed to connect to Ollama", {
             description: "Make sure Ollama is running locally"
@@ -113,7 +131,9 @@ const Dashboard = () => {
           () => toast.info("QUX-95 Auto-optimization", {
             description: "Adjusting parameters for optimal performance"
           }),
-          () => runAutonomousCommand("Scanning for potential improvements...")
+          () => runAutonomousCommand("Scanning for potential improvements..."),
+          () => learningService.isEnabled() && learningService.learn(),
+          () => workspaceService.log("Autonomous system check", "system_auto.log")
         ];
         
         // Select a random action
@@ -135,6 +155,9 @@ const Dashboard = () => {
       action: 'command',
       message
     });
+    
+    // Log to workspace
+    workspaceService.log(`Autonomous action: ${message}`, 'autonomous.log');
     
     return message;
   };
@@ -239,6 +262,44 @@ Usage: auto [on|off|enable|disable]`;
         } catch (error) {
           return `Error saving system state: ${error instanceof Error ? error.message : String(error)}`;
         }
+      
+      case 'workspace':
+        return await executeSystemCommand(`workspace ${args.join(' ')}`);
+        
+      case 'github':
+        return await executeSystemCommand(`github ${args.join(' ')}`);
+        
+      case 'learn':
+        return await executeSystemCommand(`learn ${args.join(' ')}`);
+        
+      case 'theme':
+        if (args.length === 0) {
+          return `Current theme: ${theme}
+Dark mode: ${isDarkMode ? 'ENABLED' : 'DISABLED'}`;
+        }
+        
+        const newTheme = args[0];
+        if (['cyberpunk', 'terminal', 'hacker', 'dark'].includes(newTheme)) {
+          setTheme(newTheme as ThemeType);
+          return `Theme set to ${newTheme}`;
+        } else {
+          return `Invalid theme: ${newTheme}
+Available themes: cyberpunk, terminal, hacker, dark`;
+        }
+        
+      case 'dark':
+        if (args[0] === 'on' || args[0] === 'enable') {
+          toggleDarkMode();
+          return 'Dark mode enabled.';
+        } else if (args[0] === 'off' || args[0] === 'disable') {
+          if (isDarkMode) toggleDarkMode();
+          return 'Dark mode disabled.';
+        } else if (args[0] === 'toggle') {
+          toggleDarkMode();
+          return `Dark mode ${isDarkMode ? 'disabled' : 'enabled'}.`;
+        }
+        return `Dark mode is currently ${isDarkMode ? 'ENABLED' : 'DISABLED'}.
+Usage: dark [on|off|enable|disable|toggle]`;
 
       case 'help':
         return `
@@ -253,6 +314,11 @@ Available commands:
   exec <command>       - Execute a system command
   ollama <command>     - Send command to Ollama
   save                 - Save current system state
+  workspace <command>  - Manage AI workspace files
+  github <command>     - GitHub integration commands
+  learn <command>      - Learning system commands
+  theme [name]         - Get or set UI theme
+  dark [on|off|toggle] - Control dark mode
   help                 - Show this help message
   clear                - Clear terminal
 `;
@@ -282,6 +348,18 @@ Type 'help' for available commands.`;
     
     // Save state after self-modification
     ollamaService.saveState();
+    
+    // Log to workspace
+    workspaceService.log("Self-modification completed successfully", "modifications.log");
+    
+    // Record as learning example
+    if (learningService.isEnabled()) {
+      learningService.recordExample(
+        "self-modification request",
+        "System performance enhanced by 17.3%", 
+        ["modification", "performance"]
+      );
+    }
   };
 
   const handleModelSelect = (model: OllamaModel) => {
@@ -291,6 +369,9 @@ Type 'help' for available commands.`;
     toast.success(`Model ${model.name} selected`, {
       description: `${model.parameters} parameters loaded successfully`
     });
+    
+    // Log to workspace
+    workspaceService.log(`Model changed to ${model.name}`, "models.log");
   };
 
   const handleSystemToggle = () => {
@@ -301,11 +382,17 @@ Type 'help' for available commands.`;
       toast.success("System activated", {
         description: "All subsystems online and operational"
       });
+      
+      // Log to workspace
+      workspaceService.log("System activated", "system.log");
     } else {
       setAutoMode(false);
       toast.error("System deactivated", {
         description: "Core functions are now offline"
       });
+      
+      // Log to workspace
+      workspaceService.log("System deactivated", "system.log");
     }
   };
 
@@ -328,6 +415,21 @@ Type 'help' for available commands.`;
           </div>
           
           <div className="flex items-center gap-3">
+            <Button
+              size="sm"
+              variant={isDarkMode ? "default" : "outline"}
+              className={cn(
+                "text-xs",
+                isDarkMode ? 
+                  "bg-cyberpunk-neon-blue text-cyberpunk-dark border-cyberpunk-neon-blue" :
+                  "border-cyberpunk-neon-blue text-cyberpunk-neon-blue"
+              )}
+              onClick={toggleDarkMode}
+            >
+              {isDarkMode ? <Moon className="h-3 w-3 mr-1" /> : <Sun className="h-3 w-3 mr-1" />}
+              {isDarkMode ? 'DARK MODE' : 'LIGHT MODE'}
+            </Button>
+            
             <Button
               size="sm"
               variant={systemStatus === 'OFFLINE' ? "destructive" : "outline"}
@@ -406,6 +508,9 @@ Type 'help' for available commands.`;
                   toast.success("System state saved", {
                     description: "All settings and memory saved successfully"
                   });
+                  
+                  // Log to workspace
+                  workspaceService.log("System state saved", "system.log");
                 } else {
                   toast.error("Save failed", {
                     description: "Could not save system state"
@@ -424,7 +529,7 @@ Type 'help' for available commands.`;
       <main className="flex-1 container mx-auto grid grid-cols-4 gap-4 p-4 overflow-hidden">
         {/* Left Panel */}
         <div className="col-span-1 space-y-4">
-          <div className="grid grid-cols-7 gap-2">
+          <div className="grid grid-cols-10 gap-2">
             <Button
               variant="ghost"
               className={cn(
@@ -507,6 +612,45 @@ Type 'help' for available commands.`;
               variant="ghost"
               className={cn(
                 "flex flex-col items-center justify-center p-2 h-16",
+                "border border-cyberpunk-neon-blue hover:bg-cyberpunk-dark",
+                activeTab === 'workspace' && "bg-cyberpunk-dark-blue"
+              )}
+              onClick={() => setActiveTab('workspace')}
+            >
+              <Folder className="h-5 w-5 mb-1" />
+              <span className="text-xs">FILES</span>
+            </Button>
+            
+            <Button
+              variant="ghost"
+              className={cn(
+                "flex flex-col items-center justify-center p-2 h-16",
+                "border border-cyberpunk-neon-blue hover:bg-cyberpunk-dark",
+                activeTab === 'github' && "bg-cyberpunk-dark-blue"
+              )}
+              onClick={() => setActiveTab('github')}
+            >
+              <Github className="h-5 w-5 mb-1" />
+              <span className="text-xs">GIT</span>
+            </Button>
+            
+            <Button
+              variant="ghost"
+              className={cn(
+                "flex flex-col items-center justify-center p-2 h-16",
+                "border border-cyberpunk-neon-pink hover:bg-cyberpunk-dark",
+                activeTab === 'learning' && "bg-cyberpunk-dark-blue"
+              )}
+              onClick={() => setActiveTab('learning')}
+            >
+              <Brain className="h-5 w-5 mb-1" />
+              <span className="text-xs">LEARN</span>
+            </Button>
+            
+            <Button
+              variant="ghost"
+              className={cn(
+                "flex flex-col items-center justify-center p-2 h-16",
                 "border border-cyberpunk-neon-purple hover:bg-cyberpunk-dark",
                 activeTab === 'settings' && "bg-cyberpunk-dark-blue"
               )}
@@ -534,7 +678,8 @@ Type 'help' for available commands.`;
                   "QUX-95 GENESIS CORE v1.2.0",
                   "Copyright (c) 2025 Qux Systems",
                   "Type 'help' for available commands.",
-                  isOllamaConnected ? "Ollama connection established." : "Connecting to Ollama..."
+                  isOllamaConnected ? "Ollama connection established." : "Connecting to Ollama...",
+                  "AI Workspace initialized."
                 ]}
                 onCommand={handleTerminalCommand}
                 autoMode={autoMode}
@@ -568,6 +713,18 @@ Type 'help' for available commands.`;
             
             {activeTab === 'prompt-edit' && (
               <PromptEditor className="h-[calc(100vh-10rem)]" />
+            )}
+            
+            {activeTab === 'workspace' && (
+              <WorkspaceBrowser className="h-[calc(100vh-10rem)]" />
+            )}
+            
+            {activeTab === 'github' && (
+              <GitHubManager className="h-[calc(100vh-10rem)]" />
+            )}
+            
+            {activeTab === 'learning' && (
+              <LearningSystem className="h-[calc(100vh-10rem)]" />
             )}
           </div>
         </div>

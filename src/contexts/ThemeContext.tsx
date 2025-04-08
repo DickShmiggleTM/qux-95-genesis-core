@@ -28,7 +28,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
   
   const [isDarkMode, setIsDarkMode] = useState<boolean>(
-    localStorage.getItem('qux95_dark_mode') === 'true' || false
+    localStorage.getItem('qux95_dark_mode') === 'true' || theme === 'hacker' || false
   );
 
   // Apply theme class to body
@@ -45,12 +45,16 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       root.style.setProperty('--primary-color-rgb', '51, 255, 51');
     } else if (theme === 'hacker') {
       root.style.setProperty('--primary-color-rgb', '0, 255, 0');
+      // Enable dark mode when hacker theme is selected
+      if (!isDarkMode) {
+        setIsDarkMode(true);
+      }
     } else if (theme === 'dark') {
       root.style.setProperty('--primary-color-rgb', '170, 170, 255');
     }
     
     // Apply dark mode
-    if (isDarkMode) {
+    if (isDarkMode || theme === 'hacker') {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
@@ -66,12 +70,16 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Save to localStorage
     localStorage.setItem('qux95_theme', theme);
     localStorage.setItem('qux95_animations', String(animationsEnabled));
-    localStorage.setItem('qux95_dark_mode', String(isDarkMode));
+    localStorage.setItem('qux95_dark_mode', String(isDarkMode || theme === 'hacker'));
     
   }, [theme, animationsEnabled, isDarkMode]);
 
   const setTheme = (newTheme: ThemeType) => {
     setThemeState(newTheme);
+    // If setting to hacker theme, also enable dark mode
+    if (newTheme === 'hacker' && !isDarkMode) {
+      setIsDarkMode(true);
+    }
   };
 
   const setAnimationsEnabled = (enabled: boolean) => {

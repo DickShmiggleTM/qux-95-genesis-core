@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import { cn } from '@/lib/utils';
 import { useTerminalCommands } from '@/hooks/useTerminalCommands';
+import { workspaceService } from '@/services/workspaceService';
 
 interface TerminalProps {
   className?: string;
@@ -66,7 +67,9 @@ const Terminal = forwardRef<TerminalRefHandle, TerminalProps>(({
           "auto on",
           "exec analyze system performance",
           "self-modify optimize memory usage",
-          "connection"
+          "connection",
+          "workspace stats",
+          "learn status"
         ];
         
         autoModeInterval.current = setInterval(() => {
@@ -99,6 +102,9 @@ const Terminal = forwardRef<TerminalRefHandle, TerminalProps>(({
     
     // Add command to history display
     addToHistory(`${prompt} ${command}`);
+    
+    // Log command to workspace
+    workspaceService.log(`Terminal command: ${command}`, 'terminal.log');
     
     // Execute the command and get result
     const result = await executeCommand(command);
@@ -160,7 +166,7 @@ const Terminal = forwardRef<TerminalRefHandle, TerminalProps>(({
       const possibleCommands = [
         "help", "status", "connect", "model", "models", "chat", "settings", "clear", 
         "exit", "exec", "self-modify", "connection", "memory", "context", "auto", "echo",
-        "hardware", "reasoning", "save"
+        "hardware", "reasoning", "save", "workspace", "github", "learn"
       ];
       
       const matchingCommands = possibleCommands.filter(
