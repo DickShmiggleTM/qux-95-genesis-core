@@ -1,3 +1,4 @@
+
 /**
  * System utilities for common operations across the application
  */
@@ -201,8 +202,8 @@ const handleGitHubCommand = (command: string): string => {
       const message = parts[1];
       const files = parts[2].split(',');
       
-      const commitPromise = githubService.createCommit(message, files);
-      // Return a message without requiring the hash right away
+      // Return a message without requiring the hash right away since createCommit is async
+      githubService.createCommit(message, files);
       return 'Creating commit... Check the GitHub interface for details.';
     
     case 'push':

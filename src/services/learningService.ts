@@ -151,6 +151,7 @@ class LearningService {
       
       // Also update system state
       const systemState = saveSystem.loadSystemState() || {};
+      
       saveSystem.saveSystemState({
         ...systemState,
         learning: this.state
