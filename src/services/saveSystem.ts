@@ -11,6 +11,8 @@ export interface SavedState {
   memory: Record<string, any>;
   context: any[];
   chatHistory: any[];
+  workspace?: any;
+  learning?: any;
   lastSaved: string;
 }
 
@@ -47,10 +49,14 @@ class SaveSystem {
   }
 
   public async saveSystemState(
-    manualSave: boolean = false, 
+    stateOrManualSave: boolean | Partial<SavedState> = false, 
     data?: Partial<SavedState>
   ): Promise<boolean> {
     try {
+      // Check if first parameter is a boolean (backward compatibility)
+      const manualSave = typeof stateOrManualSave === 'boolean' ? stateOrManualSave : false;
+      const stateData = typeof stateOrManualSave !== 'boolean' ? stateOrManualSave : data || {};
+      
       const state: SavedState = {
         settings: {
           theme: localStorage.getItem('qux95_theme') || 'cyberpunk',
@@ -58,9 +64,11 @@ class SaveSystem {
           autoMode: localStorage.getItem('qux95_auto_mode') === 'true',
           autoSaveInterval: this.autoSaveInterval / (60 * 1000), // Convert back to minutes
         },
-        memory: data?.memory || {},
-        context: data?.context || [],
-        chatHistory: data?.chatHistory || [],
+        memory: stateData?.memory || {},
+        context: stateData?.context || [],
+        chatHistory: stateData?.chatHistory || [],
+        workspace: stateData?.workspace || undefined,
+        learning: stateData?.learning || undefined,
         lastSaved: new Date().toISOString(),
       };
 
@@ -80,7 +88,7 @@ class SaveSystem {
     } catch (error) {
       console.error("Failed to save system state:", error);
       
-      if (manualSave) {
+      if (typeof stateOrManualSave === 'boolean' && stateOrManualSave) {
         toast.error("Failed to save system state", {
           description: "An error occurred while saving your settings"
         });

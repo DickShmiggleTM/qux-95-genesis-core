@@ -1,4 +1,3 @@
-
 /**
  * System utilities for common operations across the application
  */
@@ -202,8 +201,9 @@ const handleGitHubCommand = (command: string): string => {
       const message = parts[1];
       const files = parts[2].split(',');
       
-      const commit = githubService.createCommit(message, files);
-      return commit ? `Commit created: ${commit.hash} - ${message}` : 'Failed to create commit';
+      const commitPromise = githubService.createCommit(message, files);
+      // Return a message without requiring the hash right away
+      return 'Creating commit... Check the GitHub interface for details.';
     
     case 'push':
       if (!githubService.isAuthenticated()) return 'Not authenticated. Use "github auth" first.';

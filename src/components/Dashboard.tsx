@@ -34,7 +34,7 @@ import {
 import { cn } from '@/lib/utils';
 import { toast } from "sonner";
 import { ollamaService, OllamaModel } from '@/services/ollamaService';
-import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
+import { ThemeProvider, useTheme, ThemeType } from '@/contexts/ThemeContext';
 import { checkHardwareCapabilities, executeSystemCommand } from '@/utils/systemUtils';
 import { reasoningSystem } from '@/services/reasoningSystem';
 import { workspaceService } from '@/services/workspaceService';
