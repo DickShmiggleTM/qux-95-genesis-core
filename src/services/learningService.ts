@@ -48,7 +48,7 @@ class LearningService {
   /**
    * Initialize learning state with default values
    */
-  private initializeState(): void {
+  initializeState() {
     const defaultModel: LearningModel = {
       id: uuidv4(),
       name: 'BaseModel',
