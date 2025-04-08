@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -77,9 +76,9 @@ const queryClient = new QueryClient({
       staleTime: 60 * 1000, // 1 minute
       retry: 2,
       refetchOnWindowFocus: false,
-      // Updated error handling - using onSettled instead of onError
-      onSettled: (data, error) => {
-        if (error) {
+      // Use meta for error handling in the latest version of react-query
+      meta: {
+        errorHandler: (error) => {
           console.error('Query error:', error);
           toast.error("Data fetch failed", {
             description: "There was a problem retrieving data"
