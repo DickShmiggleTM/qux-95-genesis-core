@@ -28,7 +28,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
   
   const [isDarkMode, setIsDarkMode] = useState<boolean>(
-    localStorage.getItem('qux95_dark_mode') === 'true' || theme === 'hacker' || false
+    localStorage.getItem('qux95_dark_mode') === 'true' || theme === 'hacker' || theme === 'dark' || false
   );
 
   // Apply theme class to body
@@ -54,7 +54,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     
     // Apply dark mode
-    if (isDarkMode || theme === 'hacker') {
+    if (isDarkMode || theme === 'hacker' || theme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
@@ -70,14 +70,22 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Save to localStorage
     localStorage.setItem('qux95_theme', theme);
     localStorage.setItem('qux95_animations', String(animationsEnabled));
-    localStorage.setItem('qux95_dark_mode', String(isDarkMode || theme === 'hacker'));
+    localStorage.setItem('qux95_dark_mode', String(isDarkMode || theme === 'hacker' || theme === 'dark'));
     
-  }, [theme, animationsEnabled, isDarkMode]);
+    // Also save to system state
+    if (savedState) {
+      if (!savedState.settings) savedState.settings = {};
+      savedState.settings.theme = theme;
+      savedState.settings.animationsEnabled = animationsEnabled;
+      savedState.settings.isDarkMode = isDarkMode || theme === 'hacker' || theme === 'dark';
+      saveSystem.saveSystemState(savedState);
+    }
+  }, [theme, animationsEnabled, isDarkMode, savedState]);
 
   const setTheme = (newTheme: ThemeType) => {
     setThemeState(newTheme);
-    // If setting to hacker theme, also enable dark mode
-    if (newTheme === 'hacker' && !isDarkMode) {
+    // If setting to hacker or dark theme, also enable dark mode
+    if ((newTheme === 'hacker' || newTheme === 'dark') && !isDarkMode) {
       setIsDarkMode(true);
     }
   };

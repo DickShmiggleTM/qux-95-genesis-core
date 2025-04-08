@@ -1,4 +1,3 @@
-
 /**
  * AI Workspace Service
  * 
@@ -6,7 +5,7 @@
  * This service manages a sandboxed directory for AI operations.
  */
 import { toast } from 'sonner';
-import { saveSystem } from './saveSystem';
+import { saveSystem, SavedState } from './saveSystem';
 
 interface FileStats {
   name: string;
@@ -56,7 +55,7 @@ class WorkspaceService {
    */
   private loadWorkspace(): void {
     try {
-      const savedState = saveSystem.loadSystemState();
+      const savedState: SavedState | null = saveSystem.loadSystemState();
       if (savedState?.workspace) {
         this.workspace = savedState.workspace;
         console.log('Workspace loaded from saved state:', this.workspace);
@@ -126,12 +125,10 @@ Files in this directory are managed by the QUX-95 system.
    */
   private saveWorkspace(): void {
     try {
-      const systemState = saveSystem.loadSystemState() || {};
+      const systemState: SavedState = saveSystem.loadSystemState() || {};
       
-      saveSystem.saveSystemState({
-        ...systemState,
-        workspace: this.workspace
-      });
+      systemState.workspace = this.workspace;
+      saveSystem.saveSystemState(systemState);
       
       this.workspace.stats.lastModified = new Date();
     } catch (error) {

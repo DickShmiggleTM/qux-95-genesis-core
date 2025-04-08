@@ -1,130 +1,103 @@
 
-import { toast } from "sonner";
+/**
+ * Save System - Handles persisting system state across page reloads
+ */
+import { ThemeType } from '@/contexts/ThemeContext';
+import { Workspace } from './workspaceService';
 
+// Define the saved state interface
 export interface SavedState {
-  settings: {
-    theme: string;
-    animationsEnabled: boolean;
-    autoMode: boolean;
-    autoSaveInterval: number;
+  settings?: {
+    theme?: ThemeType;
+    animationsEnabled?: boolean;
+    isDarkMode?: boolean;
+    [key: string]: any;
   };
-  memory: Record<string, any>;
-  context: any[];
-  chatHistory: any[];
-  workspace?: any;
-  learning?: any;
-  lastSaved: string;
+  models?: {
+    available: string[];
+    selected?: string;
+  };
+  workspace?: Workspace;
+  learning?: LearningState;
+  github?: {
+    authenticated: boolean;
+    username?: string;
+    token?: string;
+    repositories?: any[];
+  };
+  [key: string]: any;
 }
 
+export interface LearningState {
+  enabled: boolean;
+  stats: {
+    totalExamples: number;
+    lastLearnedAt: number | null;
+    improvementRate: number;
+  };
+  models: LearningModel[];
+  activeModelId: string | null;
+  examples: LearningExample[];
+}
+
+export interface LearningModel {
+  id: string;
+  name: string;
+  created: number;
+  performance: {
+    accuracy: number;
+    iterations: number;
+    lastImprovement: number;
+  };
+}
+
+export interface LearningExample {
+  id: string;
+  input: string;
+  output: string;
+  tags: string[];
+  timestamp: number;
+}
+
+// The save system service
 class SaveSystem {
-  private static STORAGE_KEY = 'qux95_system_state';
-  private autoSaveInterval: number = 5 * 60 * 1000; // Default: 5 minutes
-  private autoSaveTimer: NodeJS.Timeout | null = null;
-
-  constructor() {
-    // Initialize auto-save on instantiation
-    this.startAutoSave();
-  }
-
-  public startAutoSave(): void {
-    if (this.autoSaveTimer) {
-      clearInterval(this.autoSaveTimer);
-    }
-
-    this.autoSaveTimer = setInterval(() => {
-      this.saveSystemState();
-    }, this.autoSaveInterval);
-  }
-
-  public stopAutoSave(): void {
-    if (this.autoSaveTimer) {
-      clearInterval(this.autoSaveTimer);
-      this.autoSaveTimer = null;
-    }
-  }
-
-  public setAutoSaveInterval(minutes: number): void {
-    this.autoSaveInterval = minutes * 60 * 1000;
-    this.startAutoSave(); // Restart with new interval
-  }
-
-  public async saveSystemState(
-    stateOrManualSave: boolean | Partial<SavedState> = false, 
-    data?: Partial<SavedState>
-  ): Promise<boolean> {
+  private readonly STORAGE_KEY = 'qux95_system_state';
+  
+  /**
+   * Save system state to local storage
+   */
+  saveSystemState(state: SavedState): boolean {
     try {
-      // Check if first parameter is a boolean (backward compatibility)
-      const manualSave = typeof stateOrManualSave === 'boolean' ? stateOrManualSave : false;
-      const stateData = typeof stateOrManualSave !== 'boolean' ? stateOrManualSave : data || {};
-      
-      const state: SavedState = {
-        settings: {
-          theme: localStorage.getItem('qux95_theme') || 'cyberpunk',
-          animationsEnabled: localStorage.getItem('qux95_animations') !== 'false',
-          autoMode: localStorage.getItem('qux95_auto_mode') === 'true',
-          autoSaveInterval: this.autoSaveInterval / (60 * 1000), // Convert back to minutes
-        },
-        memory: stateData?.memory || {},
-        context: stateData?.context || [],
-        chatHistory: stateData?.chatHistory || [],
-        workspace: stateData?.workspace || undefined,
-        learning: stateData?.learning || undefined,
-        lastSaved: new Date().toISOString(),
-      };
-
-      // Store in localStorage
-      localStorage.setItem(
-        SaveSystem.STORAGE_KEY,
-        JSON.stringify(state)
-      );
-
-      if (manualSave) {
-        toast.success("System state saved", {
-          description: `All settings and memory saved at ${new Date().toLocaleTimeString()}`
-        });
-      }
-
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(state));
       return true;
     } catch (error) {
-      console.error("Failed to save system state:", error);
-      
-      if (typeof stateOrManualSave === 'boolean' && stateOrManualSave) {
-        toast.error("Failed to save system state", {
-          description: "An error occurred while saving your settings"
-        });
-      }
-      
+      console.error('Error saving system state:', error);
       return false;
     }
   }
-
-  public loadSystemState(): SavedState | null {
+  
+  /**
+   * Load system state from local storage
+   */
+  loadSystemState(): SavedState | null {
     try {
-      const savedState = localStorage.getItem(SaveSystem.STORAGE_KEY);
-      
-      if (!savedState) {
-        return null;
-      }
-      
-      return JSON.parse(savedState) as SavedState;
+      const savedState = localStorage.getItem(this.STORAGE_KEY);
+      return savedState ? JSON.parse(savedState) : null;
     } catch (error) {
-      console.error("Failed to load system state:", error);
-      toast.error("Failed to load saved state", {
-        description: "Your previous settings could not be restored"
-      });
+      console.error('Error loading system state:', error);
       return null;
     }
   }
-
-  public clearSavedState(): boolean {
+  
+  /**
+   * Clear system state from local storage
+   */
+  clearSystemState(): boolean {
     try {
-      localStorage.removeItem(SaveSystem.STORAGE_KEY);
-      toast.success("System state cleared", {
-        description: "All saved settings and memory have been reset"
-      });
+      localStorage.removeItem(this.STORAGE_KEY);
       return true;
     } catch (error) {
-      console.error("Failed to clear system state:", error);
+      console.error('Error clearing system state:', error);
       return false;
     }
   }
