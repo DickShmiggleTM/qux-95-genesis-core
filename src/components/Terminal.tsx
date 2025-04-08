@@ -1,7 +1,7 @@
+
 import React, { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
-import { ollamaService } from '@/services/ollamaService';
+import { useTerminalCommands } from '@/hooks/useTerminalCommands';
 
 interface TerminalProps {
   className?: string;
@@ -10,6 +10,7 @@ interface TerminalProps {
   onCommand?: (command: string) => void | string | Promise<string | void>;
   height?: string;
   autoMode?: boolean;
+  onSelfModify?: () => void;
 }
 
 // Create a proper interface for the ref
@@ -24,16 +25,23 @@ const Terminal = forwardRef<TerminalRefHandle, TerminalProps>(({
   initialMessages = [],
   onCommand,
   height = "h-64",
-  autoMode = false
+  autoMode = false,
+  onSelfModify
 }, ref) => {
   const [inputValue, setInputValue] = useState("");
   const [history, setHistory] = useState<string[]>([...initialMessages]);
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
-  const [isProcessing, setIsProcessing] = useState(false);
   const terminalRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const autoModeInterval = useRef<NodeJS.Timeout | null>(null);
+
+  // Use the terminal commands hook
+  const { isProcessing, executeCommand } = useTerminalCommands({
+    externalCommandHandler: onCommand,
+    autoMode,
+    onSelfModify
+  });
 
   useEffect(() => {
     // Scroll to bottom when history changes
@@ -64,7 +72,7 @@ const Terminal = forwardRef<TerminalRefHandle, TerminalProps>(({
         autoModeInterval.current = setInterval(() => {
           // Pick a random command
           const randomCommand = autoCommands[Math.floor(Math.random() * autoCommands.length)];
-          executeCommand(randomCommand);
+          handleExecuteCommand(randomCommand);
         }, 30000); // Every 30 seconds
       }
     } else {
@@ -82,171 +90,28 @@ const Terminal = forwardRef<TerminalRefHandle, TerminalProps>(({
     };
   }, [autoMode]);
 
-  const builtInCommands: Record<string, (args: string[]) => string | Promise<string>> = {
-    help: () => {
-      return `
-Available commands:
-  help                 - Show this help message
-  clear                - Clear the terminal
-  echo <text>          - Print text
-  status               - Show system status
-  model <name>         - Set current model
-  models               - List available models
-  exec <command>       - Execute system command
-  self-modify          - Activate self-modification
-  connection           - Check Ollama connection status
-  memory <key>         - Show memory content
-  context              - Show context window
-  auto [on|off]        - Toggle autonomous mode
-`;
-    },
-    clear: () => {
-      setHistory([]);
-      return "";
-    },
-    echo: (args) => {
-      return args.join(" ");
-    },
-    status: async () => {
-      const connected = await ollamaService.checkConnection();
-      const currentModel = ollamaService.getCurrentModel();
-      return `
-System Status: ONLINE
-Ollama Connection: ${connected ? 'CONNECTED' : 'DISCONNECTED'}
-Current Model: ${currentModel || 'None'}
-Session ID: ${ollamaService.getSessionId()}
-Memory Status: ACTIVE
-`;
-    },
-    model: async (args) => {
-      if (args.length === 0) {
-        const currentModel = ollamaService.getCurrentModel();
-        return `Current model: ${currentModel || 'None'}`;
-      }
-      
-      const modelName = args.join(' ');
-      const models = ollamaService.getModels();
-      const model = models.find(m => m.name.toLowerCase() === modelName.toLowerCase() || m.id.toLowerCase() === modelName.toLowerCase());
-      
-      if (model) {
-        ollamaService.setCurrentModel(model.id);
-        return `Model set to ${model.name} (${model.id})`;
-      } else {
-        return `Model "${modelName}" not found. Use 'models' to see available models.`;
-      }
-    },
-    models: async () => {
-      const models = ollamaService.getModels();
-      
-      if (models.length === 0) {
-        return 'No models available. Make sure Ollama is connected.';
-      }
-      
-      return `Available models:\n${models.map(m => `- ${m.name} (${m.id}): ${m.parameters}`).join('\n')}`;
-    },
-    exec: async (args) => {
-      if (args.length === 0) {
-        return 'Usage: exec <command>';
-      }
-      
-      const command = args.join(' ');
-      try {
-        const result = await ollamaService.executeCommand(command);
-        return result;
-      } catch (error) {
-        return `Error executing command: ${error instanceof Error ? error.message : String(error)}`;
-      }
-    },
-    connection: async () => {
-      const connected = await ollamaService.checkConnection();
-      return connected 
-        ? 'Successfully connected to Ollama.' 
-        : 'Failed to connect to Ollama. Is it running?';
-    },
-    memory: (args) => {
-      const key = args[0];
-      if (!key) {
-        return 'Usage: memory <category>';
-      }
-      
-      const data = ollamaService.retrieveFromMemory(key);
-      return `Memory contents for "${key}":\n${JSON.stringify(data, null, 2)}`;
-    },
-    context: () => {
-      const context = ollamaService.getContext();
-      return `Recent context window:\n${JSON.stringify(context.slice(-5), null, 2)}`;
-    },
-    "self-modify": async (args) => {
-      if (args.length === 0) {
-        return 'Usage: self-modify <description>';
-      }
-      
-      const description = args.join(' ');
-      const result = await ollamaService.selfModify(
-        "// Simulated code modification",
-        description
-      );
-      
-      return result 
-        ? `Self-modification successful: ${description}` 
-        : 'Self-modification failed';
-    },
-    auto: (args) => {
-      // This will be handled by the Dashboard component
-      if (args[0] === 'on' || args[0] === 'enable') {
-        return 'Autonomous mode enabled.';
-      } else if (args[0] === 'off' || args[0] === 'disable') {
-        return 'Autonomous mode disabled.';
-      }
-      return `Usage: auto [on|off|enable|disable]`;
-    }
-  };
-
   const addToHistory = (text: string) => {
     setHistory((prev) => [...prev, text]);
   };
 
-  const executeCommand = async (command: string) => {
+  const handleExecuteCommand = async (command: string) => {
     if (!command.trim()) return;
     
     // Add command to history display
     addToHistory(`${prompt} ${command}`);
     
-    // Parse command and arguments
-    const parts = command.split(" ");
-    const cmd = parts[0].toLowerCase();
-    const args = parts.slice(1);
+    // Execute the command and get result
+    const result = await executeCommand(command);
     
-    // Check for built-in command
-    if (builtInCommands[cmd]) {
-      try {
-        const result = await builtInCommands[cmd](args);
-        if (result) {
-          addToHistory(result);
-        }
-      } catch (error) {
-        addToHistory(`Error: ${error instanceof Error ? error.message : String(error)}`);
-      }
+    // Special case for clear command
+    if (result === "CLEAR_TERMINAL") {
+      setHistory([]);
       return;
     }
-
-    // External command handler
-    if (onCommand) {
-      setIsProcessing(true);
-      try {
-        const result = await onCommand(command);
-        if (result) {
-          addToHistory(result.toString());
-        }
-      } catch (error) {
-        console.error("Command execution error:", error);
-        addToHistory(`Error: ${error instanceof Error ? error.message : String(error)}`);
-      } finally {
-        setIsProcessing(false);
-      }
-    } else {
-      // Default response if no handler
-      addToHistory(`Command not recognized: ${command}`);
+    
+    // Add result to history if it exists
+    if (result) {
+      addToHistory(result.toString());
     }
   };
 
@@ -262,7 +127,7 @@ Memory Status: ACTIVE
     setInputValue("");
     
     // Execute command
-    await executeCommand(command);
+    await handleExecuteCommand(command);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -294,7 +159,8 @@ Memory Status: ACTIVE
       e.preventDefault();
       const possibleCommands = [
         "help", "status", "connect", "model", "models", "chat", "settings", "clear", 
-        "exit", "exec", "self-modify", "connection", "memory", "context", "auto", "echo"
+        "exit", "exec", "self-modify", "connection", "memory", "context", "auto", "echo",
+        "hardware", "reasoning", "save"
       ];
       
       const matchingCommands = possibleCommands.filter(
@@ -314,12 +180,8 @@ Memory Status: ACTIVE
   
   // Properly expose the executeCommand method via useImperativeHandle
   useImperativeHandle(ref, () => ({
-    executeCommand
+    executeCommand: handleExecuteCommand
   }));
-
-  // Remove the window global reference that was causing the error
-  // The following line was causing the error - it's been replaced with a proper ref implementation above
-  // React.useImperativeHandle((window as any).terminalRef = {}, () => ({ executeCommand: (cmd: string) => executeCommand(cmd) }));
 
   return (
     <div 

@@ -27,6 +27,8 @@ import { cn } from '@/lib/utils';
 import { toast } from "sonner";
 import { ollamaService, OllamaModel } from '@/services/ollamaService';
 import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
+import { checkHardwareCapabilities, executeSystemCommand } from '@/utils/systemUtils';
+import { reasoningSystem } from '@/services/reasoningSystem';
 
 // Define the available tabs for the main interface
 type TabType = 'terminal' | 'chat' | 'code' | 'settings' | 'rag' | 'image-gen' | 'prompt-edit';
@@ -66,6 +68,9 @@ const Dashboard = () => {
           toast.success("Connected to Ollama successfully", {
             description: "Local Ollama instance detected and connected"
           });
+          
+          // Enable reasoning system by default
+          reasoningSystem.enable();
         } else {
           toast.error("Failed to connect to Ollama", {
             description: "Make sure Ollama is running locally"
@@ -144,11 +149,7 @@ const Dashboard = () => {
     
     switch (cmd) {
       case 'status':
-        return `System Status: ${systemStatus}
-Ollama Connection: ${isOllamaConnected ? 'CONNECTED' : 'DISCONNECTED'}
-Current Model: ${currentModel?.name || 'None'}
-Autonomous Mode: ${autoMode ? 'ENABLED' : 'DISABLED'}
-Session ID: ${ollamaService.getSessionId()}`;
+        return await checkHardwareCapabilities();
 
       case 'connect':
         if (args[0] === 'ollama') {
@@ -222,11 +223,21 @@ Usage: auto [on|off|enable|disable]`;
         }
         
         try {
-          // Execute via Ollama service
-          const result = await ollamaService.executeCommand(args.join(' '));
-          return `Executed: ${args.join(' ')}\n${result}`;
+          return await executeSystemCommand(args.join(' '));
         } catch (error) {
           return `Execution error: ${error instanceof Error ? error.message : String(error)}`;
+        }
+
+      case 'save':
+        try {
+          const saved = await ollamaService.saveState();
+          if (saved) {
+            return 'System state saved successfully.';
+          } else {
+            return 'Failed to save system state.';
+          }
+        } catch (error) {
+          return `Error saving system state: ${error instanceof Error ? error.message : String(error)}`;
         }
 
       case 'help':
@@ -241,6 +252,7 @@ Available commands:
   self-modify          - Same as 'modify'
   exec <command>       - Execute a system command
   ollama <command>     - Send command to Ollama
+  save                 - Save current system state
   help                 - Show this help message
   clear                - Clear terminal
 `;
@@ -267,6 +279,9 @@ Type 'help' for available commands.`;
       timestamp: new Date().toISOString(),
       result: "System performance enhanced by 17.3%"
     });
+    
+    // Save state after self-modification
+    ollamaService.saveState();
   };
 
   const handleModelSelect = (model: OllamaModel) => {
@@ -309,7 +324,7 @@ Type 'help' for available commands.`;
         <div className="container mx-auto flex items-center justify-between">
           <div className="flex items-center">
             <div className="text-2xl font-pixel text-cyberpunk-neon-green neon-glow mr-2">QUX-95</div>
-            <div className="text-sm opacity-70">GENESIS CORE v1.1.0</div>
+            <div className="text-sm opacity-70">GENESIS CORE v1.2.0</div>
           </div>
           
           <div className="flex items-center gap-3">
@@ -379,6 +394,27 @@ Type 'help' for available commands.`;
             >
               <Database className="h-3 w-3 mr-1" />
               {isOllamaConnected ? 'OLLAMA CONNECTED' : 'OLLAMA DISCONNECTED'}
+            </Button>
+            
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-cyberpunk-neon-blue text-cyberpunk-neon-blue text-xs"
+              onClick={async () => {
+                const saved = await ollamaService.saveState();
+                if (saved) {
+                  toast.success("System state saved", {
+                    description: "All settings and memory saved successfully"
+                  });
+                } else {
+                  toast.error("Save failed", {
+                    description: "Could not save system state"
+                  });
+                }
+              }}
+              disabled={!isOllamaConnected || systemStatus === 'OFFLINE'}
+            >
+              SAVE
             </Button>
           </div>
         </div>
@@ -495,13 +531,14 @@ Type 'help' for available commands.`;
                 ref={terminalRef}
                 className="h-[calc(100vh-10rem)]" 
                 initialMessages={[
-                  "QUX-95 GENESIS CORE v1.1.0",
+                  "QUX-95 GENESIS CORE v1.2.0",
                   "Copyright (c) 2025 Qux Systems",
                   "Type 'help' for available commands.",
                   isOllamaConnected ? "Ollama connection established." : "Connecting to Ollama..."
                 ]}
                 onCommand={handleTerminalCommand}
                 autoMode={autoMode}
+                onSelfModify={() => setIsSelfModifying(true)}
               />
             )}
             
