@@ -618,7 +618,7 @@ class OllamaService {
   }
 
   async saveState(): Promise<boolean> {
-    return saveSystem.saveSystemState(true, {
+    return saveSystem.saveSystemState({
       memory: this.memory,
       context: this.contextWindow,
       chatHistory: [] // This would be populated from the ChatWindow component

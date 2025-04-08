@@ -57,6 +57,7 @@ export interface LearningExample {
   output: string;
   tags: string[];
   timestamp: number;
+  feedback?: 'positive' | 'negative' | 'neutral';
 }
 
 // The save system service

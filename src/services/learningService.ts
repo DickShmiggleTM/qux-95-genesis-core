@@ -120,45 +120,50 @@ class LearningService {
   /**
    * Start learning process
    */
-  learn(): boolean {
-    if (!this.isEnabled() || this.state.examples.length === 0) {
-      return false;
-    }
-    
-    // Record learning attempt
-    workspaceService.log('Learning process started', 'learning.log');
-    
-    // Simulate learning process
-    setTimeout(() => {
-      const activeModel = this.getActiveModel();
-      
-      if (activeModel) {
-        // Update model performance
-        const modelIndex = this.state.models.findIndex(m => m.id === activeModel.id);
-        
-        if (modelIndex !== -1) {
-          this.state.models[modelIndex].performance.iterations += 1;
-          this.state.models[modelIndex].performance.accuracy += 0.01;
-          this.state.models[modelIndex].performance.lastImprovement = Date.now();
-        }
-        
-        // Update stats
-        this.state.stats.lastLearnedAt = Date.now();
-        this.state.stats.improvementRate += 0.5;
-        
-        // Save state
-        this.saveState();
-        
-        // Log to workspace
-        workspaceService.log(`Learning complete. New accuracy: ${activeModel.performance.accuracy.toFixed(2)}`, 'learning.log');
-        
-        toast.success('Learning process completed', {
-          description: `Model accuracy improved to ${(activeModel.performance.accuracy * 100).toFixed(2)}%`
-        });
+  learn(): Promise<boolean> {
+    return new Promise((resolve) => {
+      if (!this.isEnabled() || this.state.examples.length === 0) {
+        resolve(false);
+        return;
       }
-    }, 2000);
-    
-    return true;
+      
+      // Record learning attempt
+      workspaceService.log('Learning process started', 'learning.log');
+      
+      // Simulate learning process
+      setTimeout(() => {
+        const activeModel = this.getActiveModel();
+        
+        if (activeModel) {
+          // Update model performance
+          const modelIndex = this.state.models.findIndex(m => m.id === activeModel.id);
+          
+          if (modelIndex !== -1) {
+            this.state.models[modelIndex].performance.iterations += 1;
+            this.state.models[modelIndex].performance.accuracy += 0.01;
+            this.state.models[modelIndex].performance.lastImprovement = Date.now();
+          }
+          
+          // Update stats
+          this.state.stats.lastLearnedAt = Date.now();
+          this.state.stats.improvementRate += 0.5;
+          
+          // Save state
+          this.saveState();
+          
+          // Log to workspace
+          workspaceService.log(`Learning complete. New accuracy: ${activeModel.performance.accuracy.toFixed(2)}`, 'learning.log');
+          
+          toast.success('Learning process completed', {
+            description: `Model accuracy improved to ${(activeModel.performance.accuracy * 100).toFixed(2)}%`
+          });
+          
+          resolve(true);
+        } else {
+          resolve(false);
+        }
+      }, 2000);
+    });
   }
   
   /**
@@ -190,6 +195,62 @@ class LearningService {
   }
   
   /**
+   * Set the active learning model
+   */
+  setActiveModel(modelId: string): boolean {
+    if (!this.state.models.some(m => m.id === modelId)) {
+      return false;
+    }
+    
+    this.state.activeModelId = modelId;
+    this.saveState();
+    return true;
+  }
+  
+  /**
+   * Create a new learning model
+   */
+  createModel(name: string, description: string, options?: { learningRate?: number }): string | null {
+    const model: LearningModel = {
+      id: uuidv4(),
+      name,
+      created: Date.now(),
+      performance: {
+        accuracy: 0.5,
+        iterations: 0,
+        lastImprovement: Date.now()
+      }
+    };
+    
+    this.state.models.push(model);
+    this.saveState();
+    
+    // Log to workspace
+    workspaceService.log(`New learning model created: ${name} (${model.id})`, 'learning.log');
+    
+    return model.id;
+  }
+  
+  /**
+   * Provide feedback for a learning example
+   */
+  provideFeedback(exampleId: string, feedback: 'positive' | 'negative' | 'neutral'): boolean {
+    const exampleIndex = this.state.examples.findIndex(e => e.id === exampleId);
+    
+    if (exampleIndex === -1) {
+      return false;
+    }
+    
+    this.state.examples[exampleIndex].feedback = feedback;
+    this.saveState();
+    
+    // Log to workspace
+    workspaceService.log(`Feedback provided for example ${exampleId}: ${feedback}`, 'learning.log');
+    
+    return true;
+  }
+  
+  /**
    * Get learning system statistics
    */
   getStats(): typeof this.state.stats {
@@ -216,10 +277,24 @@ class LearningService {
   }
   
   /**
-   * Get all learning examples
+   * Get all learning examples with optional filtering
    */
-  getExamples(): LearningExample[] {
-    return [...this.state.examples];
+  getExamples(filter?: { tags?: string[], feedback?: 'positive' | 'negative' | 'neutral' }): LearningExample[] {
+    let examples = [...this.state.examples];
+    
+    if (filter) {
+      if (filter.tags && filter.tags.length > 0) {
+        examples = examples.filter(e => 
+          filter.tags!.some(tag => e.tags.includes(tag))
+        );
+      }
+      
+      if (filter.feedback) {
+        examples = examples.filter(e => e.feedback === filter.feedback);
+      }
+    }
+    
+    return examples;
   }
 }
 
