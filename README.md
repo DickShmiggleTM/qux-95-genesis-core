@@ -115,6 +115,55 @@ Manages the file system for AI-generated content:
 4. **Type Safety**: Ensure proper TypeScript types for all variables and functions
 5. **Documentation**: Add JSDoc comments to all public methods and complex logic
 
+## Code Quality Tools
+
+### Testing
+
+The project uses Jest for testing. Run tests using:
+
+```sh
+npm test
+```
+
+For test coverage reports:
+
+```sh
+npm run test:coverage
+```
+
+### CI/CD Pipeline
+
+The project includes a CI/CD pipeline implemented with GitHub Actions:
+
+1. Every push and pull request runs tests and linting
+2. Successful merges to main branch trigger automated builds
+3. Deployment occurs automatically after successful builds
+
+You can run the CI pipeline locally using:
+
+```sh
+npm run ci
+```
+
+### Security Measures
+
+The application implements several security features:
+
+- Content Security Policy (CSP)
+- HTTPS Strict Transport Security (HSTS)
+- X-Content-Type-Options
+- X-Frame-Options
+- Referrer-Policy
+- Permissions-Policy
+
+## Monitoring and Performance
+
+Performance monitoring is implemented with:
+
+- API request timing
+- Error tracking
+- Session metrics
+
 ## Contributing
 
 When contributing to QUX-95, please follow these guidelines:
@@ -123,6 +172,16 @@ When contributing to QUX-95, please follow these guidelines:
 2. Ensure comprehensive test coverage for new features
 3. Update documentation to reflect changes
 4. Follow the established code structure and patterns
+5. Run the local CI pipeline before submitting PRs
+
+## Code Review Process
+
+All code changes undergo a review process:
+
+1. Automated checks via GitHub Actions
+2. Manual code review by at least one maintainer
+3. Verification of test coverage
+4. Security review for sensitive changes
 
 ## System Services
 
