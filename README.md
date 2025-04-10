@@ -1,73 +1,104 @@
-# Welcome to your Lovable project
 
-## Project info
+# QUX-95 AI System
 
-**URL**: https://lovable.dev/projects/b5f311bb-baca-4e96-9fff-7cfa2334f399
+## Project Overview
 
-## How can I edit this code?
+QUX-95 is an advanced AI interaction system built on React and TypeScript, designed to provide seamless integration with the Ollama language model backend. The system features a modern, cyberpunk-inspired UI with terminal-like interactions, model management, document processing capabilities, and self-learning functionality.
 
-There are several ways of editing your application.
+## Core Features
 
-**Use Lovable**
+- **AI Model Integration**: Direct interface with Ollama language models for text completion and chat functionality
+- **Self-Learning Capability**: Continuous improvement through tracked examples and feedback
+- **Workspace Management**: Built-in file system for AI-generated content and code
+- **Hardware Optimization**: Automatic detection and utilization of available GPU/CPU resources
+- **Document Processing**: Extract and analyze content from uploaded documents
+- **Terminal Interface**: Command-line style interaction alongside modern UI components
+- **Customizable Themes**: Cyberpunk-inspired visual aesthetics with dark mode support
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/b5f311bb-baca-4e96-9fff-7cfa2334f399) and start prompting.
+## System Requirements
 
-Changes made via Lovable will be committed automatically to this repo.
+- Node.js (v18+)
+- Ollama installed locally (for AI functionality)
+- Modern web browser
 
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+## Quick Start
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+# Clone the repository
+git clone <repository-url>
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# Navigate to project directory
+cd qux-95
 
-# Step 3: Install the necessary dependencies.
-npm i
+# Install dependencies
+npm install
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start the development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## Architecture
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+The QUX-95 system is built on a modular architecture, with clear separation of concerns:
 
-**Use GitHub Codespaces**
+- **Core Services**: Ollama integration, learning system, workspace management
+- **UI Components**: React components for user interaction
+- **State Management**: Centralized system state with persistence
+- **Utility Functions**: Common functions for system operations
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Development Guidelines
 
-## What technologies are used for this project?
+### Coding Standards
 
-This project is built with:
+- Use TypeScript for all new code
+- Follow the existing component structure
+- Document public methods and complex logic
+- Use Tailwind CSS for styling
+- Create small, focused components (50 lines or less)
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Component Organization
 
-## How can I deploy this project?
+- UI components should be placed in `src/components/`
+- Services go in `src/services/`
+- Utility functions in `src/utils/`
+- Hooks should be placed in `src/hooks/`
 
-Simply open [Lovable](https://lovable.dev/projects/b5f311bb-baca-4e96-9fff-7cfa2334f399) and click on Share -> Publish.
+## System Services
 
-## Can I connect a custom domain to my Lovable project?
+### OllamaService
 
-Yes it is!
+Central service for interacting with Ollama LLMs:
+- Model management (listing, selecting, uploading)
+- Text completion and chat functionality
+- Memory and context management
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+### WorkspaceService
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+File system management for AI workspaces:
+- Create, read, update, and delete files
+- Manage directories
+- Track file metadata
+
+### LearningService
+
+Handles the self-learning capabilities:
+- Track examples and feedback
+- Maintain learning models
+- Calculate improvement metrics
+
+## Changelog
+
+See [CHANGELOG.md](./CHANGELOG.md) for the project history and version details.
+
+## Roadmap
+
+- Enhanced document processing with multi-format support
+- Expanded GitHub integration for repository management
+- Improved self-learning algorithms with better model adaptation
+- Performance optimizations for large context windows
+- Advanced workspace capabilities with more file formats
+
+## Contributing
+
+Contributions are welcome! Please follow the established coding standards and component structure. Create focused, maintainable components and ensure comprehensive test coverage for new features.
+

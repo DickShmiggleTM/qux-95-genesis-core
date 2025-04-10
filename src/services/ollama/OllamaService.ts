@@ -7,6 +7,16 @@ import { OllamaMemory } from "./OllamaMemory";
 import { HardwareInfo, OllamaCompletion as OllamaCompletionType, OllamaModel } from "./types";
 import { toast } from "sonner";
 
+/**
+ * OllamaService - Core service for interacting with the Ollama language model backend
+ * 
+ * This service provides a unified API for all Ollama operations including:
+ * - Managing connection to the Ollama backend
+ * - Model management (listing, selecting, uploading)
+ * - Text completion and chat functionality
+ * - Memory and context management
+ * - System self-modification capabilities
+ */
 class OllamaService extends BaseService {
   private connection: OllamaConnection;
   private models: OllamaModels;
@@ -21,6 +31,10 @@ class OllamaService extends BaseService {
     this.completion = new OllamaCompletion(this.connection, this.memory);
   }
   
+  /**
+   * Initialize the Ollama service
+   * @returns {Promise<boolean>} Success status
+   */
   async init(): Promise<boolean> {
     try {
       const result = await this.connection.checkConnection();
