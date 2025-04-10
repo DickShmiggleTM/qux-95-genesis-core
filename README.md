@@ -41,10 +41,54 @@ npm run dev
 
 The QUX-95 system is built on a modular architecture, with clear separation of concerns:
 
-- **Core Services**: Ollama integration, learning system, workspace management
-- **UI Components**: React components for user interaction
-- **State Management**: Centralized system state with persistence
-- **Utility Functions**: Common functions for system operations
+### Core Components
+
+- **Services Layer**: Handles business logic and external integrations
+  - `ollamaService`: Manages all interactions with the Ollama backend
+  - `learningService`: Handles the self-improvement system
+  - `workspaceService`: Manages file operations and workspace state
+  - `saveSystem`: Provides persistence for system state
+  
+- **UI Components**: React components organized by function
+  - Terminal and command interface
+  - Model selection and management
+  - Document processing
+  - Settings and configuration
+  
+- **State Management**: Uses a combination of React Context and service singletons
+
+### Data Flow
+
+```
+User Input → UI Components → Services → External APIs → Services → UI Components → User
+```
+
+## Service Architecture
+
+### ollamaService
+
+The central service for AI functionality is composed of several modules:
+
+- **OllamaConnection**: Handles connection to the Ollama backend and hardware detection
+- **OllamaModels**: Manages available models and model selection
+- **OllamaCompletion**: Handles text generation and chat functionality
+- **OllamaMemory**: Manages context window and persistent memory
+
+### learningService
+
+Provides self-improvement capabilities:
+
+- Example tracking and feedback collection
+- Model performance metrics
+- Learning process management
+
+### workspaceService
+
+Manages the file system for AI-generated content:
+
+- File creation, reading, updating, and deletion
+- Directory management
+- File metadata tracking
 
 ## Development Guidelines
 
@@ -62,6 +106,23 @@ The QUX-95 system is built on a modular architecture, with clear separation of c
 - Services go in `src/services/`
 - Utility functions in `src/utils/`
 - Hooks should be placed in `src/hooks/`
+
+### Best Practices
+
+1. **Error Handling**: Use the `BaseService.handleError` method for consistent error handling
+2. **State Management**: Leverage the `saveSystem` for persistent state
+3. **UI Components**: Keep components small and focused on a single responsibility
+4. **Type Safety**: Ensure proper TypeScript types for all variables and functions
+5. **Documentation**: Add JSDoc comments to all public methods and complex logic
+
+## Contributing
+
+When contributing to QUX-95, please follow these guidelines:
+
+1. Create focused, maintainable components
+2. Ensure comprehensive test coverage for new features
+3. Update documentation to reflect changes
+4. Follow the established code structure and patterns
 
 ## System Services
 
@@ -86,10 +147,6 @@ Handles the self-learning capabilities:
 - Maintain learning models
 - Calculate improvement metrics
 
-## Changelog
-
-See [CHANGELOG.md](./CHANGELOG.md) for the project history and version details.
-
 ## Roadmap
 
 - Enhanced document processing with multi-format support
@@ -98,7 +155,6 @@ See [CHANGELOG.md](./CHANGELOG.md) for the project history and version details.
 - Performance optimizations for large context windows
 - Advanced workspace capabilities with more file formats
 
-## Contributing
+## Changelog
 
-Contributions are welcome! Please follow the established coding standards and component structure. Create focused, maintainable components and ensure comprehensive test coverage for new features.
-
+See [CHANGELOG.md](./CHANGELOG.md) for the project history and version details.

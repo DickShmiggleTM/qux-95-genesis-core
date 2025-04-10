@@ -1,3 +1,4 @@
+
 import { BaseService } from "../base/BaseService";
 import { OllamaMemoryItem } from "./types";
 import { toast } from "sonner";
@@ -24,6 +25,8 @@ export class OllamaMemory extends BaseService {
     const savedContext = this.loadState<OllamaMemoryItem[]>('context');
     if (savedContext) {
       this.contextWindow = savedContext;
+    } else {
+      this.contextWindow = [];
     }
   }
   
@@ -43,7 +46,7 @@ export class OllamaMemory extends BaseService {
     }
     
     // Save updated context
-    super.saveState('context', this.contextWindow);
+    this.saveState('context', this.contextWindow);
   }
   
   /**
@@ -60,7 +63,7 @@ export class OllamaMemory extends BaseService {
     };
     
     // Save updated memory
-    super.saveState('memory', this.memory);
+    this.saveState('memory', this.memory);
   }
   
   /**
@@ -92,8 +95,8 @@ export class OllamaMemory extends BaseService {
    * Save current state to storage
    */
   saveMemoryState(): boolean {
-    const memoryResult = super.saveState('memory', this.memory);
-    const contextResult = super.saveState('context', this.contextWindow);
+    const memoryResult = this.saveState('memory', this.memory);
+    const contextResult = this.saveState('context', this.contextWindow);
     return memoryResult && contextResult;
   }
   
