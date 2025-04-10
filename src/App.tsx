@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import AdvancedFeatures from "./pages/AdvancedFeatures";
 import "./styles/themes.css";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { saveSystem } from './services/saveSystem';
@@ -163,6 +164,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/advanced-features" element={<AdvancedFeatures />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
