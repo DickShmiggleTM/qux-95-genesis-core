@@ -18,4 +18,13 @@ module.exports = {
       tsconfig: 'tsconfig.json',
     }],
   },
+  globals: {
+    'ts-jest': {
+      tsconfig: 'tsconfig.json',
+      isolatedModules: true,
+    }
+  },
+  testEnvironmentOptions: {
+    customExportConditions: ['node', 'node-addons'],
+  }
 };
