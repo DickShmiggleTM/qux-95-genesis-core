@@ -8,11 +8,13 @@ import { v4 as uuidv4 } from 'uuid';
 import { saveSystem, LearningState, LearningModel, LearningExample } from './saveSystem';
 import { workspaceService } from './workspaceService';
 import { toast } from 'sonner';
+import { BaseService } from './base/BaseService';
 
-class LearningService {
+class LearningService extends BaseService {
   private state: LearningState;
   
   constructor() {
+    super();
     // Default state
     this.state = {
       enabled: false,
