@@ -16,12 +16,12 @@ export class OllamaMemory extends BaseService {
    * Load memory from saved state
    */
   private loadMemoryState(): void {
-    const savedState = this.loadState('memory');
-    if (savedState) {
-      this.memory = savedState;
+    const savedMemory = this.loadState<Record<string, any>>('memory');
+    if (savedMemory) {
+      this.memory = savedMemory;
     }
     
-    const savedContext = this.loadState('context');
+    const savedContext = this.loadState<OllamaMemoryItem[]>('context');
     if (savedContext) {
       this.contextWindow = savedContext;
     }
@@ -43,7 +43,7 @@ export class OllamaMemory extends BaseService {
     }
     
     // Save updated context
-    this.saveState('context', this.contextWindow);
+    super.saveState('context', this.contextWindow);
   }
   
   /**
@@ -60,7 +60,7 @@ export class OllamaMemory extends BaseService {
     };
     
     // Save updated memory
-    this.saveState('memory', this.memory);
+    super.saveState('memory', this.memory);
   }
   
   /**
@@ -91,11 +91,10 @@ export class OllamaMemory extends BaseService {
   /**
    * Save current state to storage
    */
-  saveState(): Promise<boolean> {
-    return Promise.resolve(
-      super.saveState('memory', this.memory) && 
-      super.saveState('context', this.contextWindow)
-    );
+  saveMemoryState(): boolean {
+    const memoryResult = super.saveState('memory', this.memory);
+    const contextResult = super.saveState('context', this.contextWindow);
+    return memoryResult && contextResult;
   }
   
   /**

@@ -29,17 +29,17 @@ class LearningService extends BaseService {
     };
     
     // Try to load from saved state
-    this.loadState();
+    this.loadLearningState();
   }
   
   /**
    * Load learning state from system state
    */
-  private loadState(): void {
-    const savedState = saveSystem.loadSystemState();
+  private loadLearningState(): void {
+    const savedState = this.loadState<LearningState>('learning');
     
-    if (savedState?.learning) {
-      this.state = savedState.learning;
+    if (savedState) {
+      this.state = savedState;
       console.log('Learning state loaded:', this.state);
     } else {
       console.log('No learning state found, initializing default');
@@ -74,20 +74,15 @@ class LearningService extends BaseService {
       examples: []
     };
     
-    this.saveState();
+    this.saveLearningState();
   }
   
   /**
    * Save current learning state
    */
-  private saveState(): void {
+  private saveLearningState(): void {
     try {
-      // Update system state
-      const systemState = saveSystem.loadSystemState() || {};
-      
-      systemState.learning = this.state;
-      saveSystem.saveSystemState(systemState);
-      
+      super.saveState('learning', this.state);
     } catch (error) {
       console.error('Error saving learning state:', error);
     }
@@ -98,7 +93,7 @@ class LearningService extends BaseService {
    */
   enable(): boolean {
     this.state.enabled = true;
-    this.saveState();
+    this.saveLearningState();
     return true;
   }
   
@@ -107,7 +102,7 @@ class LearningService extends BaseService {
    */
   disable(): boolean {
     this.state.enabled = false;
-    this.saveState();
+    this.saveLearningState();
     return true;
   }
   
@@ -150,7 +145,7 @@ class LearningService extends BaseService {
           this.state.stats.improvementRate += 0.5;
           
           // Save state
-          this.saveState();
+          this.saveLearningState();
           
           // Log to workspace
           workspaceService.log(`Learning complete. New accuracy: ${activeModel.performance.accuracy.toFixed(2)}`, 'learning.log');
@@ -187,7 +182,7 @@ class LearningService extends BaseService {
     this.state.stats.totalExamples += 1;
     
     // Save state
-    this.saveState();
+    this.saveLearningState();
     
     // Log to workspace
     workspaceService.log(`New example recorded: ${example.id}`, 'learning.log');
@@ -204,7 +199,7 @@ class LearningService extends BaseService {
     }
     
     this.state.activeModelId = modelId;
-    this.saveState();
+    this.saveLearningState();
     return true;
   }
   
@@ -224,7 +219,7 @@ class LearningService extends BaseService {
     };
     
     this.state.models.push(model);
-    this.saveState();
+    this.saveLearningState();
     
     // Log to workspace
     workspaceService.log(`New learning model created: ${name} (${model.id})`, 'learning.log');
@@ -243,7 +238,7 @@ class LearningService extends BaseService {
     }
     
     this.state.examples[exampleIndex].feedback = feedback;
-    this.saveState();
+    this.saveLearningState();
     
     // Log to workspace
     workspaceService.log(`Feedback provided for example ${exampleId}: ${feedback}`, 'learning.log');
