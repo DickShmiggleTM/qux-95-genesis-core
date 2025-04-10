@@ -5,6 +5,7 @@ import { OllamaModels } from "./OllamaModels";
 import { OllamaCompletion } from "./OllamaCompletion";
 import { OllamaMemory } from "./OllamaMemory";
 import { HardwareInfo, OllamaCompletion as OllamaCompletionType, OllamaModel } from "./types";
+import { toast } from "sonner";
 
 class OllamaService extends BaseService {
   private connection: OllamaConnection;
@@ -134,9 +135,9 @@ class OllamaService extends BaseService {
     return this.completion.isReasoningEnabled();
   }
   
-  // Save state
-  async saveState(): Promise<boolean> {
-    return this.memory.saveState();
+  // Save state - renamed to avoid conflict with BaseService's saveState method
+  async saveSystemState(): Promise<boolean> {
+    return this.memory.saveMemoryState();
   }
   
   // Self-modification capabilities
