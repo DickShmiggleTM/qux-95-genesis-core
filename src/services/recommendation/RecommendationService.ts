@@ -1,4 +1,3 @@
-
 /**
  * Recommendation Service
  * 
@@ -81,7 +80,7 @@ export class RecommendationService extends BaseService {
   /**
    * Save current state to storage
    */
-  private saveState(): void {
+  private persistState(): void {
     const state = {
       users: Array.from(this.users.values()),
       contentItems: Array.from(this.contentItems.values()),
@@ -223,7 +222,7 @@ export class RecommendationService extends BaseService {
       this.users.set(defaultUser.id, defaultUser);
       
       // Save the initial state
-      this.saveState();
+      this.persistState();
       
       workspaceService.log(`Recommendation service initialized with ${contentItems.length} content items`, 'recommendation.log');
     }
@@ -251,7 +250,7 @@ export class RecommendationService extends BaseService {
     }
     
     this.users.set(userId, user);
-    this.saveState();
+    this.persistState();
     
     return user;
   }
@@ -303,7 +302,7 @@ export class RecommendationService extends BaseService {
     
     item.popularity = Math.min(1, item.popularity + popularityBoost);
     
-    this.saveState();
+    this.persistState();
     return true;
   }
   
@@ -319,7 +318,7 @@ export class RecommendationService extends BaseService {
     };
     
     this.contentItems.set(newItem.id, newItem);
-    this.saveState();
+    this.persistState();
     
     return newItem;
   }
@@ -433,7 +432,7 @@ export class RecommendationService extends BaseService {
     };
     
     this.recommendations.set(userId, result);
-    this.saveState();
+    this.persistState();
     
     return result;
   }
