@@ -1,4 +1,3 @@
-
 /**
  * NLPService - Provides Natural Language Processing capabilities
  */
@@ -37,10 +36,55 @@ export interface TextSummary {
   compressionRatio: number;
 }
 
+// Define interface for NLP models
+export interface NLPModel {
+  id: string;
+  name: string;
+  description: string;
+  task: 'sentiment-analysis' | 'token-classification' | 'summarization' | 'feature-extraction';
+  size: number;
+}
+
+// Define interface for NLP analysis results
+export interface NLPAnalysisResult {
+  result: any;
+  processingTime: number;
+}
+
 export class NLPService extends BaseService {
   private hasGPUAcceleration: boolean;
   private modelLoaded: boolean = false;
   private loadingPromise: Promise<boolean> | null = null;
+  private availableModels: NLPModel[] = [
+    {
+      id: 'sentiment-model',
+      name: 'Sentiment Analysis',
+      description: 'Analyzes the emotional tone of text',
+      task: 'sentiment-analysis',
+      size: 25
+    },
+    {
+      id: 'ner-model',
+      name: 'Named Entity Recognition',
+      description: 'Identifies named entities like people, locations, organizations',
+      task: 'token-classification',
+      size: 50
+    },
+    {
+      id: 'summarization-model',
+      name: 'Text Summarization',
+      description: 'Creates concise summaries of longer texts',
+      task: 'summarization',
+      size: 125
+    },
+    {
+      id: 'embedding-model',
+      name: 'Text Embeddings',
+      description: 'Generates vector representations of text',
+      task: 'feature-extraction',
+      size: 75
+    }
+  ];
   
   constructor() {
     super();
@@ -49,6 +93,75 @@ export class NLPService extends BaseService {
     workspaceService.log(`NLP Service initialized. GPU acceleration: ${this.hasGPUAcceleration ? 'available' : 'unavailable'}`, 'nlp.log');
   }
   
+  /**
+   * Initialize the NLP service
+   */
+  public async initialize(): Promise<boolean> {
+    workspaceService.log('Initializing NLP service...', 'nlp.log');
+    return true;
+  }
+
+  /**
+   * Get available models
+   */
+  public getAvailableModels(): NLPModel[] {
+    return this.availableModels;
+  }
+
+  /**
+   * Check if WebGPU is supported
+   */
+  public isWebGPUSupported(): boolean {
+    return this.hasGPUAcceleration;
+  }
+
+  /**
+   * Check if model is loaded
+   */
+  public isModelLoaded(modelId: string): boolean {
+    return this.modelLoaded;
+  }
+
+  /**
+   * Load a specific model
+   */
+  public async loadModel(modelId: string): Promise<boolean> {
+    return this.ensureModelLoaded();
+  }
+
+  /**
+   * Analyze text using a specific model
+   */
+  public async analyzeText(text: string, modelId: string): Promise<NLPAnalysisResult> {
+    const startTime = performance.now();
+    let result;
+
+    switch (modelId) {
+      case 'sentiment-model':
+        result = await this.analyzeSentiment(text);
+        break;
+      case 'ner-model':
+        result = await this.extractEntities(text);
+        break;
+      case 'summarization-model':
+        result = await this.summarizeText(text);
+        break;
+      case 'embedding-model':
+        // Simulated embeddings
+        result = {
+          tolist: () => Array.from({ length: 384 }, () => Math.random() * 2 - 1)
+        };
+        break;
+      default:
+        result = await this.analyzeSentiment(text);
+    }
+
+    return {
+      result,
+      processingTime: performance.now() - startTime
+    };
+  }
+
   /**
    * Analyze the sentiment of a text passage
    */
@@ -182,18 +295,18 @@ export class NLPService extends BaseService {
     
     Object.entries(categoryKeywords).forEach(([category, keywords]) => {
       let score = 0;
-      let matches = 0;
+      let matchCount = 0;
       
       Object.entries(keywords).forEach(([keyword, weight]) => {
         const regex = new RegExp('\\b' + keyword + '\\b', 'gi');
-        const matches = (lowerText.match(regex) || []).length;
-        if (matches > 0) {
-          score += weight * matches;
-          matches += matches;
+        const matchesFound = (lowerText.match(regex) || []).length;
+        if (matchesFound > 0) {
+          score += weight * matchesFound;
+          matchCount += matchesFound;
         }
       });
       
-      if (matches > 0) {
+      if (matchCount > 0) {
         // Normalize by the text length to avoid bias towards longer texts
         const normalizedScore = score / Math.sqrt(text.length);
         categoryScores[category] = Math.min(0.95, normalizedScore);
@@ -202,8 +315,8 @@ export class NLPService extends BaseService {
     
     // Convert scores to classifications
     Object.entries(categoryScores)
-      .filter(([_, score]) => score > 0.2) // Only include categories with sufficient confidence
-      .sort(([_, scoreA], [_, scoreB]) => scoreB - scoreA) // Sort by score descending
+      .filter(([category, score]) => score > 0.2) // Only include categories with sufficient confidence
+      .sort(([catA, scoreA], [catB, scoreB]) => scoreB - scoreA) // Sort by score descending
       .forEach(([category, score]) => {
         classifications.push({
           label: category,
@@ -285,7 +398,7 @@ export class NLPService extends BaseService {
     
     // Get top keywords
     const topKeywords = Object.entries(wordFreq)
-      .sort(([_, countA], [_, countB]) => countB - countA)
+      .sort(([word1, countA], [word2, countB]) => countB - countA)
       .slice(0, 10)
       .map(([word]) => word);
     
