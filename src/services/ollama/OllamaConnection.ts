@@ -29,16 +29,20 @@ export class OllamaConnection extends BaseService {
    */
   async checkConnection(): Promise<boolean> {
     try {
+      console.log('Checking Ollama connection to:', OLLAMA_BASE_URL);
+      
       const response = await fetch(`${OLLAMA_BASE_URL}/tags`, { 
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       });
       
       if (!response.ok) {
+        console.error('Ollama connection error:', response.status, response.statusText);
         this.connected = false;
         return false;
       }
       
+      console.log('Ollama connection successful');
       this.connected = true;
       return true;
     } catch (error) {

@@ -1,11 +1,11 @@
 
+import { toast } from "sonner";
 import { BaseService } from "../base/BaseService";
 import { OllamaConnection } from "./OllamaConnection";
 import { OllamaModels } from "./OllamaModels";
 import { OllamaCompletion } from "./OllamaCompletion";
 import { OllamaMemory } from "./OllamaMemory";
 import { HardwareInfo, OllamaCompletion as OllamaCompletionType, OllamaModel } from "./types";
-import { toast } from "sonner";
 
 /**
  * OllamaService - Core service for interacting with the Ollama language model backend
@@ -97,6 +97,18 @@ class OllamaService extends BaseService {
     }
   ): Promise<string> {
     return this.completion.generateChatCompletion(messages, model, options);
+  }
+
+  async streamChatCompletion(
+    messages: Array<{role: string, content: string}>,
+    model: string,
+    onChunk: (content: string, done: boolean) => void,
+    options?: {
+      temperature?: number;
+      max_tokens?: number;
+    }
+  ): Promise<void> {
+    return this.completion.streamChatCompletion(messages, model, onChunk, options);
   }
   
   async generateChatCompletionWithReasoning(

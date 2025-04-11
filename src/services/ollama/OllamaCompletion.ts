@@ -35,7 +35,8 @@ export class OllamaCompletion extends BaseService {
       });
       
       if (!response.ok) {
-        throw new Error('Failed to generate completion');
+        const errorData = await response.text();
+        throw new Error(`Failed to generate completion: ${response.status} ${errorData}`);
       }
       
       const data = await response.json();
@@ -78,6 +79,8 @@ export class OllamaCompletion extends BaseService {
         options
       };
 
+      console.log('Chat request to Ollama:', JSON.stringify(requestBody));
+
       const response = await fetch(`${this.connection.getBaseUrl()}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -85,10 +88,14 @@ export class OllamaCompletion extends BaseService {
       });
       
       if (!response.ok) {
-        throw new Error('Failed to generate chat completion');
+        const errorData = await response.text();
+        console.error('Ollama API error:', response.status, errorData);
+        throw new Error(`Failed to generate chat completion: ${response.status} ${errorData}`);
       }
       
       const data = await response.json();
+      console.log('Chat response from Ollama:', data);
+      
       const responseContent = data.message?.content || "No response received";
       
       // Add to context window for memory
@@ -102,6 +109,97 @@ export class OllamaCompletion extends BaseService {
     } catch (error) {
       this.handleError("Error generating chat completion", error, true);
       return "Error: Could not generate chat response";
+    }
+  }
+  
+  /**
+   * Stream chat completion
+   */
+  async streamChatCompletion(
+    messages: Array<{role: string, content: string}>,
+    model: string,
+    onChunk: (content: string, done: boolean) => void,
+    options?: {
+      temperature?: number;
+      max_tokens?: number;
+    }
+  ): Promise<void> {
+    try {
+      if (!this.connection.isConnected()) {
+        const isConnected = await this.connection.checkConnection();
+        if (!isConnected) {
+          throw new Error('Not connected to Ollama');
+        }
+      }
+
+      const requestBody = {
+        model,
+        messages,
+        stream: true,
+        options
+      };
+
+      console.log('Streaming chat request to Ollama:', JSON.stringify(requestBody));
+
+      const response = await fetch(`${this.connection.getBaseUrl()}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('Ollama API error:', response.status, errorData);
+        throw new Error(`Failed to generate streaming chat completion: ${response.status} ${errorData}`);
+      }
+      
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('Stream response body is null');
+      }
+      
+      const decoder = new TextDecoder('utf-8');
+      let fullResponse = '';
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          // Final call with full content and done flag
+          onChunk(fullResponse, true);
+          break;
+        }
+        
+        // Decode chunk and call callback
+        const chunk = decoder.decode(value, { stream: true });
+        try {
+          // The stream returns JSON objects on each line
+          const lines = chunk.split('\n').filter(line => line.trim());
+          for (const line of lines) {
+            const data = JSON.parse(line);
+            
+            if (data.message?.content) {
+              fullResponse += data.message.content;
+              onChunk(fullResponse, false);
+            }
+          }
+        } catch (e) {
+          console.error('Error parsing streaming chunk:', e);
+          // If parsing fails, just pass the raw chunk
+          fullResponse += chunk;
+          onChunk(fullResponse, false);
+        }
+      }
+      
+      // Add to context window for memory after completion
+      this.memory.addToContext('chat', {
+        messages,
+        response: fullResponse,
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      this.handleError("Error streaming chat completion", error, true);
+      onChunk("Error: Could not generate streaming chat response", true);
     }
   }
   

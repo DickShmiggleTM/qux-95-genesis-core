@@ -3,11 +3,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { 
-  Send, Zap, FileUp, Trash2, Settings as SettingsIcon 
+  Send, Zap, FileUp, Trash2, Settings as SettingsIcon,
+  Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { ollamaService } from '@/services/ollamaService';
+import { ollamaService } from '@/services/ollama';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
@@ -46,6 +47,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   const [temperature, setTemperature] = useState(0.7);
   const [maxTokens, setMaxTokens] = useState(2048);
   const [useReasoning, setUseReasoning] = useState(false);
+  const [useStreaming, setUseStreaming] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const autoRespondTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [contextRetrieval, setContextRetrieval] = useState(true);
@@ -108,6 +110,23 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     }
   }, [messages, autoMode]);
 
+  // Check Ollama connection on component mount
+  useEffect(() => {
+    const checkConnection = async () => {
+      const connected = await ollamaService.checkConnection();
+      if (!connected) {
+        toast.error("Not connected to Ollama", {
+          description: "Make sure Ollama is running on localhost:11434"
+        });
+      } else {
+        // Load available models
+        await ollamaService.loadAvailableModels();
+      }
+    };
+    
+    checkConnection();
+  }, []);
+
   const handleGenerateResponse = async () => {
     // Don't generate if already typing
     if (isTyping) return;
@@ -153,35 +172,89 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       if (availableModels.length > 0 && ollamaService.isConnected()) {
         const currentModel = ollamaService.getCurrentModel() || availableModels[0].id;
         
-        const response = await ollamaService.generateChatCompletion(
-          [
-            {
-              role: "system", 
-              content: systemPrompt
-            },
-            ...recentMessages.map(msg => ({
-              role: msg.role, 
-              content: msg.content
-            }))
-          ],
-          currentModel,
-          {
-            temperature,
-            max_tokens: maxTokens
-          }
-        );
-        
+        // Create placeholder for assistant response
         const assistantMessage: Message = {
           role: 'assistant',
-          content: response,
+          content: useStreaming ? '...' : 'Generating response...',
           timestamp: new Date(),
         };
-        
         setMessages(prev => [...prev, assistantMessage]);
         
-        // If auto mode is enabled, potentially trigger a self-improvement action
-        if (autoMode && Math.random() < 0.15) { // 15% chance
-          triggerAutonomousAction();
+        if (useStreaming) {
+          // Handle streaming response
+          await ollamaService.streamChatCompletion(
+            [
+              {
+                role: "system", 
+                content: systemPrompt
+              },
+              ...recentMessages.map(msg => ({
+                role: msg.role, 
+                content: msg.content
+              }))
+            ],
+            currentModel,
+            (content: string, done: boolean) => {
+              // Update the assistant message with streaming content
+              setMessages(prev => {
+                const newMessages = [...prev];
+                newMessages[newMessages.length - 1] = {
+                  ...newMessages[newMessages.length - 1],
+                  content: content
+                };
+                return newMessages;
+              });
+              
+              if (done) {
+                setIsTyping(false);
+                // If auto mode is enabled, potentially trigger a self-improvement action
+                if (autoMode && Math.random() < 0.15) { // 15% chance
+                  triggerAutonomousAction();
+                }
+              }
+            },
+            {
+              temperature,
+              max_tokens: maxTokens
+            }
+          );
+        } else {
+          // Handle non-streaming response
+          const response = await ollamaService.generateChatCompletion(
+            [
+              {
+                role: "system", 
+                content: systemPrompt
+              },
+              ...recentMessages.map(msg => ({
+                role: msg.role, 
+                content: msg.content
+              }))
+            ],
+            currentModel,
+            {
+              temperature,
+              max_tokens: maxTokens
+            }
+          );
+          
+          // Update the last message with the actual response
+          setMessages(prev => {
+            const newMessages = [...prev];
+            newMessages[newMessages.length - 1] = {
+              ...newMessages[newMessages.length - 1],
+              content: response,
+              timestamp: new Date()
+            };
+            return newMessages;
+          });
+          
+          setIsTyping(false);
+          
+          // If auto mode is enabled, potentially trigger a self-improvement action
+          if (autoMode && Math.random() < 0.15) { // 15% chance
+            triggerAutonomousAction();
+          }
         }
       } else {
         // Fallback to simulated responses if Ollama is not available
@@ -201,7 +274,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       };
       
       setMessages(prev => [...prev, errorMessage]);
-    } finally {
       setIsTyping(false);
     }
   };
@@ -518,6 +590,17 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                       className="data-[state=checked]:bg-cyberpunk-neon-green"
                     />
                   </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="use-streaming">Stream responses</Label>
+                    <Switch 
+                      id="use-streaming" 
+                      checked={useStreaming}
+                      onCheckedChange={setUseStreaming}
+                      className="data-[state=checked]:bg-cyberpunk-neon-green"
+                    />
+                  </div>
+                  
                   {autoRespond && (
                     <div className="grid gap-2">
                       <Label htmlFor="auto-respond-delay">Response delay (seconds)</Label>
@@ -627,9 +710,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           </div>
         ))}
         
-        {isTyping && (
+        {isTyping && !useStreaming && (
           <div className="flex items-center text-cyberpunk-neon-green mr-8 mb-4 px-2 py-1">
             <span className="mr-2">QUX-95</span>
+            <Loader2 className="h-4 w-4 animate-spin mr-1" />
             <span className="typing-cursor animate-pulse">thinking</span>
           </div>
         )}
@@ -645,13 +729,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             onKeyDown={handleKeyDown}
             placeholder="Enter message or command..."
             className="resize-none bg-cyberpunk-dark-blue border-cyberpunk-neon-blue text-cyberpunk-neon-blue"
+            disabled={isTyping}
           />
           <div className="flex flex-col gap-2">
             <Button
               size="icon"
               onClick={handleSendMessage}
               className="bg-cyberpunk-neon-blue hover:bg-blue-500 text-cyberpunk-dark"
-              disabled={isTyping}
+              disabled={isTyping || !inputValue.trim()}
             >
               <Send className="h-4 w-4" />
             </Button>
@@ -661,12 +746,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                 type="file"
                 onChange={handleFileUpload}
                 className="hidden"
+                disabled={isTyping}
               />
               <Button
                 size="icon"
                 variant="outline"
                 className="border-cyberpunk-neon-blue text-cyberpunk-neon-blue cursor-pointer"
                 type="button"
+                disabled={isTyping}
                 asChild
               >
                 <div>
