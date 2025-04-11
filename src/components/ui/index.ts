@@ -52,9 +52,14 @@ export const MessageBubble = React.memo(({ children, className, role }: {
   };
   
   return (
-    <div className={`${baseStyle} ${roleStyles[role]} ${className || ''}`} role="listitem">
-      {children}
-    </div>
+    React.createElement(
+      "div",
+      { 
+        className: `${baseStyle} ${roleStyles[role]} ${className || ''}`, 
+        role: "listitem" 
+      },
+      children
+    )
   );
 });
 MessageBubble.displayName = 'MessageBubble';
@@ -65,17 +70,22 @@ export const StatusIndicator = React.memo(({ status, text }: {
   text: string;
 }) => {
   const icons = {
-    success: <CheckCircle className="h-4 w-4 text-green-500" />,
-    error: <XCircle className="h-4 w-4 text-red-500" />,
-    warning: <AlertCircle className="h-4 w-4 text-yellow-500" />,
-    info: <Info className="h-4 w-4 text-blue-500" />
+    success: React.createElement(CheckCircle, { className: "h-4 w-4 text-green-500" }),
+    error: React.createElement(XCircle, { className: "h-4 w-4 text-red-500" }),
+    warning: React.createElement(AlertCircle, { className: "h-4 w-4 text-yellow-500" }),
+    info: React.createElement(Info, { className: "h-4 w-4 text-blue-500" })
   };
   
   return (
-    <div className="flex items-center gap-2 text-sm" role="status">
-      {icons[status]}
-      <span>{text}</span>
-    </div>
+    React.createElement(
+      "div", 
+      { 
+        className: "flex items-center gap-2 text-sm", 
+        role: "status" 
+      },
+      icons[status],
+      React.createElement("span", null, text)
+    )
   );
 });
 StatusIndicator.displayName = 'StatusIndicator';
@@ -85,11 +95,13 @@ export const VirtualItem = React.memo(({ children, className }: {
   children: React.ReactNode;
   className?: string;
 }) => (
-  <div 
-    className={`py-2 px-3 border-b border-gray-700 ${className || ''}`}
-    role="listitem"
-  >
-    {children}
-  </div>
+  React.createElement(
+    "div", 
+    { 
+      className: `py-2 px-3 border-b border-gray-700 ${className || ''}`,
+      role: "listitem"
+    },
+    children
+  )
 ));
 VirtualItem.displayName = 'VirtualItem';
