@@ -50,6 +50,7 @@ export interface VisionAnalysisResult {
     width: number;
     height: number;
   };
+  imageUrl?: string; // Add the imageUrl property to store the source URL
 }
 
 export class VisionService extends BaseService {
@@ -131,21 +132,55 @@ export class VisionService extends BaseService {
   }
 
   /**
+   * Load an image from a URL
+   */
+  private async loadImageFromUrl(imageUrl: string): Promise<HTMLImageElement> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous"; // Handle CORS
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = imageUrl;
+    });
+  }
+
+  /**
    * Analyze an image with a specific model
    */
-  public async analyzeImage(imageData: ImageData | HTMLImageElement, modelId: string = 'object-detection-model'): Promise<VisionAnalysisResult> {
+  public async analyzeImage(
+    imageData: ImageData | HTMLImageElement | string, 
+    modelId: string = 'object-detection-model'
+  ): Promise<VisionAnalysisResult> {
     await this.ensureModelLoaded();
     
     const startTime = performance.now();
     
-    // Get image dimensions
-    let width, height;
-    if ('width' in imageData) {
-      width = imageData.width;
-      height = imageData.height;
-    } else {
+    // Handle string URLs by converting to HTMLImageElement
+    let imgElement: HTMLImageElement | null = null;
+    let width: number;
+    let height: number;
+    let imageUrl: string | undefined;
+    
+    if (typeof imageData === 'string') {
+      // It's a URL, load the image
+      imageUrl = imageData;
+      imgElement = await this.loadImageFromUrl(imageData);
+      width = imgElement.naturalWidth;
+      height = imgElement.naturalHeight;
+    } else if ('naturalWidth' in imageData) {
+      // It's already an HTMLImageElement
+      imgElement = imageData;
       width = imageData.naturalWidth;
       height = imageData.naturalHeight;
+      
+      // Try to get the URL
+      if (imageData.src) {
+        imageUrl = imageData.src;
+      }
+    } else {
+      // It's an ImageData object
+      width = imageData.width;
+      height = imageData.height;
     }
     
     // In a real app, this would process the image with a proper ML model
@@ -211,7 +246,8 @@ export class VisionService extends BaseService {
     return {
       result,
       processingTime,
-      imageInfo: { width, height }
+      imageInfo: { width, height },
+      imageUrl // Include the URL in the result
     };
   }
   

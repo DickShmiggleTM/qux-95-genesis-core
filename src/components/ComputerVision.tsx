@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -15,7 +14,7 @@ const ComputerVision: React.FC = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [models, setModels] = useState<VisionModel[]>([]);
-  const [selectedModel, setSelectedModel] = useState<string>('image-classification');
+  const [selectedModel, setSelectedModel] = useState<string>('image-classification-model');
   const [imageUrl, setImageUrl] = useState<string>('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [result, setResult] = useState<VisionAnalysisResult | null>(null);
@@ -75,6 +74,7 @@ const ComputerVision: React.FC = () => {
     setIsLoading(true);
     
     try {
+      // Pass the URL string directly, the service will now handle it
       const analysisResult = await visionService.analyzeImage(imageUrl, selectedModel);
       
       if (analysisResult) {
@@ -116,11 +116,11 @@ const ComputerVision: React.FC = () => {
                     <div className="w-40 bg-muted h-2 rounded-full overflow-hidden mr-3">
                       <div 
                         className="h-full bg-primary"
-                        style={{ width: `${prediction.score * 100}%` }}
+                        style={{ width: `${prediction.confidence * 100}%` }}
                       ></div>
                     </div>
                     <span className="text-xs text-muted-foreground w-12">
-                      {(prediction.score * 100).toFixed(1)}%
+                      {(prediction.confidence * 100).toFixed(1)}%
                     </span>
                   </div>
                 </div>
@@ -130,13 +130,16 @@ const ComputerVision: React.FC = () => {
         );
         
       case 'object-detection':
+        // Use the image URL from the result or fall back to the current imageUrl state
+        const displayUrl = result.imageUrl || imageUrl;
+        
         return (
           <div className="space-y-4">
             <h3 className="text-lg font-medium">Objects Detected:</h3>
             <div className="relative mb-4">
               <AspectRatio ratio={1} className="bg-muted">
                 <img 
-                  src={result.imageUrl} 
+                  src={displayUrl} 
                   alt="Analyzed" 
                   className="rounded-md object-cover"
                 />
@@ -145,14 +148,14 @@ const ComputerVision: React.FC = () => {
                     key={idx}
                     className="absolute border-2 border-red-500 flex items-center justify-center"
                     style={{
-                      left: `${obj.box.xmin * 100}%`,
-                      top: `${obj.box.ymin * 100}%`,
-                      width: `${(obj.box.xmax - obj.box.xmin) * 100}%`,
-                      height: `${(obj.box.ymax - obj.box.ymin) * 100}%`
+                      left: `${obj.boundingBox.x * 100}%`,
+                      top: `${obj.boundingBox.y * 100}%`,
+                      width: `${obj.boundingBox.width * 100}%`,
+                      height: `${obj.boundingBox.height * 100}%`
                     }}
                   >
                     <span className="text-xs bg-red-500 text-white px-1 absolute -top-6 left-0">
-                      {obj.label} ({Math.round(obj.score * 100)}%)
+                      {obj.label} ({Math.round(obj.confidence * 100)}%)
                     </span>
                   </div>
                 ))}
@@ -166,7 +169,7 @@ const ComputerVision: React.FC = () => {
                     {obj.label}
                   </Badge>
                   <span className="text-xs text-muted-foreground">
-                    Confidence: {(obj.score * 100).toFixed(1)}%
+                    Confidence: {(obj.confidence * 100).toFixed(1)}%
                   </span>
                 </div>
               ))}
@@ -223,7 +226,7 @@ const ComputerVision: React.FC = () => {
         ) : (
           <>
             <Tabs
-              defaultValue="image-classification"
+              defaultValue="image-classification-model"
               value={selectedModel}
               onValueChange={handleModelSelect}
               className="w-full"
