@@ -1,7 +1,7 @@
 
 // Re-export the UI components we actually use
 export { Button } from "./button";
-export { Card } from "./card";
+export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent } from "./card";
 export { Input } from "./input";
 export { Label } from "./label";
 export { Popover, PopoverContent, PopoverTrigger } from "./popover";
@@ -18,6 +18,20 @@ export { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 export { Alert, AlertDescription, AlertTitle } from "./alert";
 export { Avatar, AvatarImage, AvatarFallback } from "./avatar";
 export { Skeleton } from "./skeleton";
+export { ScrollArea, ScrollBar } from "./scroll-area";
+export { RadioGroup, RadioGroupItem } from "./radio-group";
+export { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "./accordion";
+export { AspectRatio } from "./aspect-ratio";
+export { Calendar } from "./calendar";
+export { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator, BreadcrumbEllipsis } from "./breadcrumb";
+export { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "./pagination";
+export { Sheet, SheetClose, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "./sheet";
+export { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "./alert-dialog";
+export { NavigationMenu, NavigationMenuList, NavigationMenuItem, NavigationMenuContent, NavigationMenuTrigger, NavigationMenuLink } from "./navigation-menu";
+export { Menubar, MenubarMenu, MenubarTrigger, MenubarContent, MenubarItem, MenubarSeparator, MenubarCheckboxItem, MenubarRadioGroup, MenubarRadioItem, MenubarSubContent, MenubarSubTrigger } from "./menubar";
+export { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "./resizable";
+export { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext } from "./carousel";
+export { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "./chart";
 
 // Add memoized versions of frequently re-rendered components
 import React from 'react';
