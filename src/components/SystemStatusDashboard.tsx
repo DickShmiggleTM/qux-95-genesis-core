@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Progress, Separator } from '@/components/ui';
-import { Cpu, Memory, HardDrive, Activity } from 'lucide-react';
+import { Cpu, HardDrive, Activity } from 'lucide-react';
 import { toast } from 'sonner';
 import { detectHardwareCapabilities } from '@/utils/browserCapabilities';
 import { SystemStatus } from '@/components/ChatWindow/types';
@@ -216,7 +215,7 @@ const SystemStatusDashboard: React.FC<SystemStatusDashboardProps> = ({ className
             {/* Memory Status */}
             <div className="bg-cyberpunk-dark-blue p-3 border border-cyberpunk-neon-blue">
               <div className="flex items-center mb-2">
-                <Memory className="h-4 w-4 mr-2 text-cyberpunk-neon-blue" />
+                <HardDrive className="h-4 w-4 mr-2 text-cyberpunk-neon-blue" />
                 <span className="text-cyberpunk-neon-blue text-sm">Memory</span>
                 <span className="ml-auto text-cyberpunk-neon-green text-sm">
                   {formatSize(systemStatus.memory.used)} / {formatSize(systemStatus.memory.total)}

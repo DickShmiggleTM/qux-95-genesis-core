@@ -135,6 +135,11 @@ const queryClient = new QueryClient({
   },
 });
 
+// Modify Index and AdvancedFeatures props interfaces to accept hardwareInfo
+interface PageProps {
+  hardwareInfo?: any;
+}
+
 // App wrapper with system initialization and hardware detection
 const AppWrapper = () => {
   const [isInitialized, setIsInitialized] = useState(false);
