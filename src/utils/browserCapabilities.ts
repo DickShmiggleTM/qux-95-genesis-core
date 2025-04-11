@@ -58,3 +58,40 @@ export const hasAdequateScreenSize = (): boolean => {
   return window.innerWidth >= 768 && window.innerHeight >= 500;
 };
 
+/**
+ * Detect hardware capabilities for AI operations
+ */
+export const detectHardwareCapabilities = async (): Promise<{
+  gpu: boolean;
+  webGPU: boolean;
+  webGL: boolean;
+  multiThread: boolean;
+  memory: number;
+}> => {
+  // Detect GPU through WebGPU
+  const webGPU = isWebGPUSupported();
+  
+  // Detect WebGL
+  let webGL = false;
+  try {
+    const canvas = document.createElement('canvas');
+    webGL = !!(window.WebGLRenderingContext && 
+      (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')));
+  } catch (e) {
+    webGL = false;
+  }
+  
+  // Estimate available memory
+  const memory = navigator.deviceMemory || 4; // Default to 4GB if not available
+  
+  // Check for multi-threading support via hardwareConcurrency
+  const multiThread = navigator.hardwareConcurrency > 1;
+  
+  return {
+    gpu: webGPU || webGL,
+    webGPU,
+    webGL,
+    multiThread,
+    memory
+  };
+};
