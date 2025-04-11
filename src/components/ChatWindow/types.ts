@@ -8,6 +8,8 @@ export interface Message {
     action?: string;
     status?: 'pending' | 'success' | 'error' | 'in-progress';
     details?: any;
+    importance?: number; // Memory importance factor (0-1)
+    contextId?: string; // ID for context retrieval
   };
 }
 
@@ -59,4 +61,14 @@ export interface SystemStatus {
     startTime: Date;
     progress?: number;
   }[];
+}
+
+// Interfaces for memory management
+export interface MemorySettings {
+  contextWindowSize: number;
+  shortTermMemoryEnabled: boolean;
+  longTermMemoryEnabled: boolean;
+  memoryAutoSummarize: boolean;
+  semanticSearchEnabled: boolean;
+  memoryDecayRate: number; // 0-1, how quickly memory importance decays
 }
