@@ -1,3 +1,4 @@
+
 import { BaseService } from "../base/BaseService";
 import { OllamaMemoryItem } from "./types";
 import { toast } from "sonner";
@@ -128,7 +129,7 @@ export class OllamaMemoryEnhanced extends BaseService {
     // Also store in memory manager
     memoryManager.storeMemory(
       JSON.stringify(data),
-      'memory',
+      'system',
       { category, key },
       0.6 // Medium-high importance
     );

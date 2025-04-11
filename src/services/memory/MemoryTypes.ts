@@ -6,7 +6,7 @@
 export interface MemoryItem {
   id: string;
   content: string;
-  type: 'chat' | 'system' | 'code' | 'file' | 'action' | 'error';
+  type: 'chat' | 'system' | 'code' | 'file' | 'action' | 'error' | 'memory';
   timestamp: number;
   metadata?: Record<string, any>;
   embedding?: number[];
