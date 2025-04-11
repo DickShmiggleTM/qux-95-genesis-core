@@ -10,6 +10,11 @@ interface NavigatorGPU {
   };
 }
 
+// Add DeviceMemory interface to extend Navigator type
+interface NavigatorDeviceMemory {
+  deviceMemory?: number;
+}
+
 /**
  * Check if WebGPU is supported in the current browser
  */
@@ -82,7 +87,8 @@ export const detectHardwareCapabilities = async (): Promise<{
   }
   
   // Estimate available memory
-  const memory = navigator.deviceMemory || 4; // Default to 4GB if not available
+  // Using type assertion to handle the non-standard deviceMemory property
+  const memory = (navigator as NavigatorDeviceMemory).deviceMemory || 4; // Default to 4GB if not available
   
   // Check for multi-threading support via hardwareConcurrency
   const multiThread = navigator.hardwareConcurrency > 1;

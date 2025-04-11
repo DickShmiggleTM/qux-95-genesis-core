@@ -1,4 +1,3 @@
-
 /**
  * GitHub Integration Service
  * 
@@ -569,13 +568,14 @@ Date: ${commit.date.toISOString()}
       const now = new Date();
       const yesterday = new Date(now.getTime() - 86400000);
       
+      // Explicitly typing the state as 'open' | 'closed' | 'merged' to match the interface
       return [
         {
           id: 1000001,
           number: 42,
           title: 'Enhance self-modification capabilities',
           body: 'This PR adds several enhancements to the self-modification system.',
-          state: 'open',
+          state: 'open' as const,
           headBranch: 'feature/self-mod-enhancements',
           baseBranch: this.currentRepository.defaultBranch,
           url: `https://github.com/${this.currentRepository.owner}/${this.currentRepository.name}/pull/42`,
@@ -590,7 +590,7 @@ Date: ${commit.date.toISOString()}
           number: 41,
           title: 'Fix memory management issues',
           body: 'This PR addresses several memory leaks in the system.',
-          state: 'open',
+          state: 'open' as const,
           headBranch: 'bugfix/memory-leaks',
           baseBranch: this.currentRepository.defaultBranch,
           url: `https://github.com/${this.currentRepository.owner}/${this.currentRepository.name}/pull/41`,
