@@ -20,6 +20,17 @@ const TerminalLoadingFallback = () => (
   </div>
 );
 
+const StatusDashboardLoadingFallback = () => (
+  <div className="relative font-terminal bg-cyberpunk-dark border border-cyberpunk-neon-blue rounded-none h-24">
+    <div className="absolute top-0 left-0 right-0 bg-cyberpunk-neon-blue h-5 flex items-center px-2">
+      <div className="text-cyberpunk-dark text-xs font-pixel tracking-tighter">SYSTEM STATUS</div>
+    </div>
+    <div className="p-4 pt-6 flex items-center justify-center">
+      <div className="text-cyberpunk-neon-blue animate-pulse">Loading system metrics...</div>
+    </div>
+  </div>
+);
+
 // Lazy loaded components
 export const LazyTerminal = lazy(() => import('./Terminal'));
 export const LazyDocumentRag = lazy(() => import('./DocumentRag'));
@@ -27,6 +38,7 @@ export const LazySelfModification = lazy(() => import('./SelfModification'));
 export const LazyModelSelector = lazy(() => import('./ModelSelector'));
 export const LazyChatWindow = lazy(() => import('./ChatWindow'));
 export const LazyStatusBar = lazy(() => import('./StatusBar'));
+export const LazySystemStatusDashboard = lazy(() => import('./SystemStatusDashboard'));
 
 // Wrapped components with suspense
 export const Terminal = (props: any) => (
@@ -62,5 +74,11 @@ export const ChatWindow = (props: any) => (
 export const StatusBar = (props: any) => (
   <Suspense fallback={<DefaultLoadingFallback />}>
     <LazyStatusBar {...props} />
+  </Suspense>
+);
+
+export const SystemStatusDashboard = (props: any) => (
+  <Suspense fallback={<StatusDashboardLoadingFallback />}>
+    <LazySystemStatusDashboard {...props} />
   </Suspense>
 );

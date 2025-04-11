@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState, forwardRef, useImperativeHandle } f
 import { cn } from '@/lib/utils';
 import { useTerminalCommands } from '@/hooks/useTerminalCommands';
 import { workspaceService } from '@/services/workspaceService';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface TerminalProps {
   className?: string;
@@ -29,10 +30,12 @@ const Terminal = forwardRef<TerminalRefHandle, TerminalProps>(({
   autoMode = false,
   onSelfModify
 }, ref) => {
+  const { theme, animationsEnabled } = useTheme();
   const [inputValue, setInputValue] = useState("");
   const [history, setHistory] = useState<string[]>([...initialMessages]);
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const [isTyping, setIsTyping] = useState(false);
   const terminalRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const autoModeInterval = useRef<NodeJS.Timeout | null>(null);
@@ -45,15 +48,26 @@ const Terminal = forwardRef<TerminalRefHandle, TerminalProps>(({
   });
 
   useEffect(() => {
-    // Scroll to bottom when history changes
+    // Scroll to bottom when history changes with animation
     if (terminalRef.current) {
-      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+      const scrollElement = terminalRef.current;
+      if (animationsEnabled) {
+        // Smooth scroll with animation
+        scrollElement.scrollTo({
+          top: scrollElement.scrollHeight,
+          behavior: 'smooth'
+        });
+      } else {
+        // Instant scroll without animation
+        scrollElement.scrollTop = scrollElement.scrollHeight;
+      }
     }
+    
     // Focus input when component mounts
-    if (inputRef.current) {
+    if (inputRef.current && !isProcessing) {
       inputRef.current.focus();
     }
-  }, [history]);
+  }, [history, isProcessing, animationsEnabled]);
 
   // Auto mode for autonomous execution
   useEffect(() => {
@@ -94,7 +108,34 @@ const Terminal = forwardRef<TerminalRefHandle, TerminalProps>(({
   }, [autoMode]);
 
   const addToHistory = (text: string) => {
-    setHistory((prev) => [...prev, text]);
+    // Animate the appearance of new messages
+    if (animationsEnabled) {
+      // Create typing effect for system responses
+      if (!text.startsWith(prompt) && text.length > 20) {
+        setIsTyping(true);
+        
+        // Add the message immediately but with a typing class
+        setHistory(prev => [...prev, `${text}_typing`]);
+        
+        // After a delay based on text length, replace with the full text
+        const typingDelay = Math.min(100 + text.length * 10, 2000);
+        setTimeout(() => {
+          setHistory(prev => {
+            const newHistory = [...prev];
+            const lastIndex = newHistory.length - 1;
+            if (newHistory[lastIndex].endsWith('_typing')) {
+              newHistory[lastIndex] = text;
+            }
+            setIsTyping(false);
+            return newHistory;
+          });
+        }, typingDelay);
+      } else {
+        setHistory(prev => [...prev, text]);
+      }
+    } else {
+      setHistory(prev => [...prev, text]);
+    }
   };
 
   const handleExecuteCommand = async (command: string) => {
@@ -102,6 +143,17 @@ const Terminal = forwardRef<TerminalRefHandle, TerminalProps>(({
     
     // Add command to history display
     addToHistory(`${prompt} ${command}`);
+    
+    // Visual effect for command execution
+    if (animationsEnabled) {
+      const commandElement = terminalRef.current?.lastElementChild;
+      if (commandElement) {
+        commandElement.classList.add('neon-glow');
+        setTimeout(() => {
+          commandElement.classList.remove('neon-glow');
+        }, 500);
+      }
+    }
     
     // Log command to workspace
     workspaceService.log(`Terminal command: ${command}`, 'terminal.log');
@@ -189,16 +241,44 @@ const Terminal = forwardRef<TerminalRefHandle, TerminalProps>(({
     executeCommand: handleExecuteCommand
   }));
 
+  // Get theme-specific styling
+  const getThemeStyles = () => {
+    switch (theme) {
+      case "terminal":
+        return {
+          border: "border-[#33ff33]",
+          titleBg: "bg-[#33ff33]",
+          textColor: "text-[#33ff33]"
+        };
+      case "hacker":
+        return {
+          border: "border-[#0f0]",
+          titleBg: "bg-[#0f0]",
+          textColor: "text-[#0f0]"
+        };
+      default:
+        return {
+          border: "border-cyberpunk-neon-green",
+          titleBg: "bg-cyberpunk-neon-green",
+          textColor: "text-cyberpunk-neon-green"
+        };
+    }
+  };
+  
+  const themeStyles = getThemeStyles();
+
   return (
     <div 
       className={cn(
-        "relative font-terminal bg-cyberpunk-dark border border-cyberpunk-neon-green rounded-none",
+        "relative font-terminal bg-cyberpunk-dark rounded-none",
         "pixel-corners pixel-borders overflow-hidden",
+        themeStyles.border,
+        animationsEnabled ? "transition-all duration-300" : "",
         height,
         className
       )}
     >
-      <div className="absolute top-0 left-0 right-0 bg-cyberpunk-neon-green h-5 flex items-center px-2">
+      <div className={cn("absolute top-0 left-0 right-0 h-5 flex items-center px-2", themeStyles.titleBg)}>
         <div className="text-cyberpunk-dark text-xs font-pixel tracking-tighter">TERMINAL</div>
       </div>
       <div
@@ -206,27 +286,45 @@ const Terminal = forwardRef<TerminalRefHandle, TerminalProps>(({
         className="p-4 pt-6 h-full overflow-y-auto text-sm"
         onClick={() => inputRef.current?.focus()}
       >
-        {history.map((line, index) => (
-          <div key={index} className="terminal-text-output mb-1 whitespace-pre-wrap">
-            {line}
-          </div>
-        ))}
+        {history.map((line, index) => {
+          const isTyping = line.endsWith('_typing');
+          const actualLine = isTyping ? line.replace('_typing', '') : line;
+          
+          return (
+            <div 
+              key={index} 
+              className={cn(
+                "terminal-text-output mb-1 whitespace-pre-wrap",
+                animationsEnabled && index === history.length - 1 ? "animate-fade-in" : "",
+                isTyping ? "typing-cursor" : ""
+              )}
+            >
+              {actualLine}
+            </div>
+          );
+        })}
         <form onSubmit={handleSubmit} className="flex items-center">
-          <span className="terminal-text-output mr-2">{prompt}</span>
+          <span className={cn("terminal-text-output mr-2", themeStyles.textColor)}>{prompt}</span>
           <input
             ref={inputRef}
             type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="flex-1 bg-transparent border-none outline-none text-cyberpunk-neon-green terminal-text-input"
+            className={cn(
+              "flex-1 bg-transparent border-none outline-none terminal-text-input",
+              themeStyles.textColor
+            )}
             autoComplete="off"
             spellCheck="false"
-            disabled={isProcessing}
+            disabled={isProcessing || isTyping}
           />
         </form>
         {isProcessing && (
-          <div className="text-cyberpunk-neon-green animate-pulse">
+          <div className={cn(
+            "animate-pulse",
+            themeStyles.textColor
+          )}>
             Processing...
           </div>
         )}

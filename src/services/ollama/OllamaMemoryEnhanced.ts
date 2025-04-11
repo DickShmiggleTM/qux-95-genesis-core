@@ -1,272 +1,199 @@
-
-import { BaseService } from "../base/BaseService";
-import { OllamaMemoryItem } from "./types";
-import { toast } from "sonner";
+import { MemoryItem, MemorySearchResult } from '../memory/MemoryTypes';
 import { memoryManager } from '../memory/MemoryManager';
+import { ollamaService } from './ollamaService';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
- * Enhanced Ollama Memory service with improved memory management
+ * Enhanced memory system that uses Ollama embeddings for semantic search
  */
-export class OllamaMemoryEnhanced extends BaseService {
-  private contextWindow: OllamaMemoryItem[] = [];
-  private sessionId: string = `session-${Date.now()}`;
-  private contextWindowSize: number = 50;
-  
-  constructor() {
-    super();
-    this.loadMemoryState();
-  }
-  
+class OllamaMemoryEnhanced {
+  private embeddingModel: string = 'nomic-embed-text';
+  private isInitialized: boolean = false;
+  private embeddingCache: Map<string, number[]> = new Map();
+  private maxCacheSize: number = 1000;
+
   /**
-   * Load memory from saved state
+   * Initialize the embedding model
    */
-  private loadMemoryState(): void {
-    const savedContext = this.loadState<OllamaMemoryItem[]>('context');
-    if (savedContext) {
-      this.contextWindow = savedContext;
-    } else {
-      this.contextWindow = [];
-    }
-    
-    // Load memory settings
-    const options = memoryManager.getOptions();
-    this.contextWindowSize = options.shortTermCapacity;
-  }
-  
-  /**
-   * Set context window size
-   */
-  setContextWindowSize(size: number): void {
-    this.contextWindowSize = size;
-    
-    // Update memory manager options
-    const options = memoryManager.getOptions();
-    memoryManager.setOptions({ ...options, shortTermCapacity: size });
-    
-    // Trim context window if needed
-    if (this.contextWindow.length > size) {
-      // Before trimming, store the older items in memory manager
-      const itemsToRemove = this.contextWindow.splice(
-        size, 
-        this.contextWindow.length - size
-      );
-      
-      // Store items being removed in the long-term memory
-      itemsToRemove.forEach(item => {
-        memoryManager.storeMemory(
-          JSON.stringify(item.data), 
-          item.type as any, 
-          { timestamp: item.timestamp },
-          0.5 // Medium importance
-        );
-      });
-    }
-    
-    // Save updated context
-    this.saveState('context', this.contextWindow);
-  }
-  
-  /**
-   * Get current context window size
-   */
-  getContextWindowSize(): number {
-    return this.contextWindowSize;
-  }
-  
-  /**
-   * Add item to context window
-   */
-  addToContext(type: string, data: any): void {
-    const item: OllamaMemoryItem = {
-      type,
-      data,
-      timestamp: new Date().toISOString()
-    };
-    
-    this.contextWindow.push(item);
-    
-    // Keep context window at the configured size
-    if (this.contextWindow.length > this.contextWindowSize) {
-      const removedItem = this.contextWindow.shift();
-      
-      // Store the removed item in long-term memory
-      if (removedItem) {
-        memoryManager.storeMemory(
-          JSON.stringify(removedItem.data), 
-          removedItem.type as any, 
-          { timestamp: removedItem.timestamp },
-          0.4  // Lower importance for older items
-        );
-      }
-    }
-    
-    // Also store in memory manager for unified memory access
-    memoryManager.storeMemory(
-      JSON.stringify(data),
-      type as any,
-      { timestamp: item.timestamp },
-      0.7 // Higher importance for recent items
-    );
-    
-    // Save updated context
-    this.saveState('context', this.contextWindow);
-  }
-  
-  /**
-   * Store data in persistent memory
-   */
-  storeInMemory(category: string, key: string, data: any): void {
-    // Store in Ollama's memory
-    const memory = this.retrieveFromMemory(category) || {};
-    memory[key] = {
-      ...data,
-      timestamp: new Date().toISOString()
-    };
-    
-    // Save in memory
-    this.saveState(`memory_${category}`, memory);
-    
-    // Also store in memory manager
-    memoryManager.storeMemory(
-      JSON.stringify(data),
-      'system',
-      { category, key },
-      0.6 // Medium-high importance
-    );
-  }
-  
-  /**
-   * Retrieve data from memory
-   */
-  retrieveFromMemory(category: string, key?: string): any {
-    const memory = this.loadState<Record<string, any>>(`memory_${category}`);
-    
-    if (!memory) return null;
-    if (!key) return memory;
-    
-    return memory[key] || null;
-  }
-  
-  /**
-   * Get recent context items with enhanced retrieval
-   */
-  async getContext(limit: number = 10, query?: string): Promise<OllamaMemoryItem[]> {
-    if (!query) {
-      // Simple recency-based retrieval
-      return this.contextWindow.slice(-limit);
-    }
-    
-    // Use semantic search for context retrieval when query is provided
-    const searchResults = await memoryManager.searchMemories(query, limit);
-    
-    // Map search results back to OllamaMemoryItem format
-    return searchResults.map(result => {
-      try {
-        const data = JSON.parse(result.item.content);
-        return {
-          type: result.item.type,
-          data,
-          timestamp: new Date(result.item.timestamp).toISOString()
-        };
-      } catch {
-        // If parsing fails, return the content directly
-        return {
-          type: result.item.type,
-          data: { content: result.item.content },
-          timestamp: new Date(result.item.timestamp).toISOString()
-        };
-      }
-    });
-  }
-  
-  /**
-   * Get session ID
-   */
-  getSessionId(): string {
-    return this.sessionId;
-  }
-  
-  /**
-   * Save current state to storage
-   */
-  saveMemoryState(): boolean {
-    return this.saveState('context', this.contextWindow);
-  }
-  
-  /**
-   * Process document for RAG
-   */
-  async processDocument(file: File, extractionOptions: any = {}): Promise<any> {
+  async initialize(): Promise<boolean> {
     try {
-      toast.success("Processing document", {
-        description: `Analyzing ${file.name}`
-      });
+      // Check if the embedding model is available
+      const models = await ollamaService.listModels();
+      const hasEmbeddingModel = models.some(model => model.name === this.embeddingModel);
       
-      // Simulated document processing
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      if (!hasEmbeddingModel) {
+        console.warn(`Embedding model ${this.embeddingModel} not found. Semantic search will be limited.`);
+        // Try to use another model as fallback
+        const fallbackModels = ['all-minilm', 'nomic-embed-text', 'mxbai-embed-large'];
+        for (const model of fallbackModels) {
+          if (models.some(m => m.name === model)) {
+            this.embeddingModel = model;
+            console.log(`Using ${model} as fallback embedding model`);
+            break;
+          }
+        }
+      }
       
-      // Simulated result
-      const documentData = {
-        id: `doc-${Date.now()}`,
-        filename: file.name,
-        chunks: 15,
-        processed: true,
-        timestamp: new Date().toISOString()
+      this.isInitialized = true;
+      return true;
+    } catch (error) {
+      console.error('Failed to initialize Ollama memory enhancement:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Generate embeddings for a text using Ollama
+   */
+  async generateEmbedding(text: string): Promise<number[] | null> {
+    if (!this.isInitialized) {
+      await this.initialize();
+    }
+    
+    // Check cache first
+    const cacheKey = `${text.slice(0, 100)}`;
+    if (this.embeddingCache.has(cacheKey)) {
+      return this.embeddingCache.get(cacheKey) || null;
+    }
+    
+    try {
+      const embedding = await ollamaService.generateEmbedding(text, this.embeddingModel);
+      
+      // Cache the result
+      if (embedding && this.embeddingCache.size < this.maxCacheSize) {
+        this.embeddingCache.set(cacheKey, embedding);
+      }
+      
+      return embedding;
+    } catch (error) {
+      console.error('Failed to generate embedding:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Calculate cosine similarity between two vectors
+   */
+  cosineSimilarity(a: number[], b: number[]): number {
+    if (a.length !== b.length) {
+      throw new Error('Vectors must have the same length');
+    }
+    
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
+    
+    for (let i = 0; i < a.length; i++) {
+      dotProduct += a[i] * b[i];
+      normA += a[i] * a[i];
+      normB += b[i] * b[i];
+    }
+    
+    if (normA === 0 || normB === 0) {
+      return 0;
+    }
+    
+    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+  }
+
+  /**
+   * Search for memories using semantic similarity
+   */
+  async searchMemories(query: string, limit: number = 5): Promise<MemorySearchResult[]> {
+    if (!this.isInitialized) {
+      await this.initialize();
+    }
+    
+    try {
+      // Get query embedding
+      const queryEmbedding = await this.generateEmbedding(query);
+      if (!queryEmbedding) {
+        throw new Error('Failed to generate query embedding');
+      }
+      
+      // Get all memories
+      const memories = await memoryManager.getAllMemories();
+      
+      // Calculate similarity for each memory
+      const results: MemorySearchResult[] = [];
+      
+      for (const memory of memories) {
+        // Generate embedding for memory if it doesn't have one
+        if (!memory.embedding) {
+          memory.embedding = await this.generateEmbedding(memory.content);
+          if (memory.embedding) {
+            // Update the memory with the embedding
+            await memoryManager.updateMemory(memory.id, { embedding: memory.embedding });
+          }
+        }
+        
+        if (memory.embedding) {
+          const similarity = this.cosineSimilarity(queryEmbedding, memory.embedding);
+          results.push({
+            item: memory,
+            relevance: similarity
+          });
+        }
+      }
+      
+      // Sort by relevance and limit results
+      const searchResults = results
+        .sort((a, b) => b.relevance - a.relevance)
+        .slice(0, limit);
+      
+      // Log this memory access
+      memoryManager.storeMemory(`Memory access: ${query}`, 'memory', { result: searchResults }, 0.7);
+      
+      return searchResults;
+    } catch (error) {
+      console.error('Error searching memories:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Store a memory with embedding
+   */
+  async storeMemoryWithEmbedding(
+    content: string,
+    type: 'chat' | 'system' | 'code' | 'file' | 'action' | 'error' | 'memory',
+    metadata?: Record<string, any>,
+    importance: number = 0.5
+  ): Promise<string> {
+    if (!this.isInitialized) {
+      await this.initialize();
+    }
+    
+    try {
+      // Generate embedding
+      const embedding = await this.generateEmbedding(content);
+      
+      // Create memory item
+      const memoryItem: MemoryItem = {
+        id: uuidv4(),
+        content,
+        type,
+        timestamp: Date.now(),
+        metadata,
+        embedding,
+        importance
       };
       
-      // Add to memory
-      this.storeInMemory('documents', file.name, documentData);
-      
-      // Add to context
-      this.addToContext('document', {
-        filename: file.name,
-        type: file.type,
-        processed: true
-      });
-      
-      toast.success("Document processed", {
-        description: `${file.name} ready for RAG retrieval`
-      });
-      
-      return documentData;
+      // Store in memory manager
+      return await memoryManager.storeMemoryItem(memoryItem);
     } catch (error) {
-      this.handleError("Error processing document", error, true);
-      throw error;
+      console.error('Failed to store memory with embedding:', error);
+      // Fallback to regular memory storage
+      return await memoryManager.storeMemory(content, type, metadata, importance);
     }
   }
-  
+
   /**
-   * Generate a summary of context items
+   * Clear the embedding cache
    */
-  async summarizeContext(): Promise<string> {
-    if (this.contextWindow.length === 0) {
-      return "No context to summarize";
-    }
-    
-    // In a real implementation, we'd use the language model to generate this
-    // For now we'll create a simple summary
-    const typeCount: Record<string, number> = {};
-    
-    this.contextWindow.forEach(item => {
-      typeCount[item.type] = (typeCount[item.type] || 0) + 1;
-    });
-    
-    const summary = Object.entries(typeCount)
-      .map(([type, count]) => `${count} ${type} items`)
-      .join(', ');
-    
-    return `Context contains ${this.contextWindow.length} items: ${summary}`;
-  }
-  
-  /**
-   * Clear context window
-   */
-  clearContext(): void {
-    this.contextWindow = [];
-    this.saveState('context', this.contextWindow);
-    
-    toast.info("Context window cleared", {
-      description: "Short-term memory has been reset"
-    });
+  clearCache(): void {
+    this.embeddingCache.clear();
   }
 }
+
+export const ollamaMemoryEnhanced = new OllamaMemoryEnhanced();
