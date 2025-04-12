@@ -10,7 +10,6 @@ import ChatHistoryPanel from './ChatHistoryPanel';
 import { chatHistoryService } from '@/services/chatHistoryService';
 import ModelSelector from './ModelSelector';
 import PromptEditor from '@/components/PromptEditor';
-import ChangeLogPanel from '@/components/ChangeLogs/ChangeLogPanel';
 import {
   Dialog,
   DialogContent,
@@ -54,7 +53,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   const [currentModel, setCurrentModel] = useState<string>(modelName);
   const [isPromptEditorOpen, setIsPromptEditorOpen] = useState(false);
   const [isQuxToolsOpen, setIsQuxToolsOpen] = useState(false);
-  const [isChangeLogOpen, setIsChangeLogOpen] = useState(false);
   const [availableModels, setAvailableModels] = useState<string[]>(['QUX-95', 'llama2', 'mistral', 'codellama', 'vicuna']);
 
   // Initialize chat history
@@ -632,10 +630,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     setIsQuxToolsOpen(true);
   }, []);
 
-  const handleToggleChangeLogs = useCallback(() => {
-    setIsChangeLogOpen(!isChangeLogOpen);
-  }, [isChangeLogOpen]);
-
   const handlePromptEditorSubmit = useCallback((promptContent: string) => {
     setIsPromptEditorOpen(false);
     
@@ -724,8 +718,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         }
         onOpenPromptEditor={handleOpenPromptEditor}
         onOpenQuxTools={handleOpenQuxTools}
-        onToggleChangeLogs={handleToggleChangeLogs}
-        {...{} /* Force TypeScript to use the most up-to-date version of the Header component */}
       />
 
       <MessageList
@@ -805,9 +797,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Change Log Panel */}
-      <ChangeLogPanel isOpen={isChangeLogOpen} onToggle={handleToggleChangeLogs} />
     </div>
   );
 };
