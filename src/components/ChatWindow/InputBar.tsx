@@ -30,10 +30,10 @@ const InputBar: React.FC<InputBarProps> = ({
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
-    
+
     const file = e.target.files[0];
     onFileUpload(file);
-    
+
     // Reset the input
     e.target.value = '';
   };
@@ -46,14 +46,14 @@ const InputBar: React.FC<InputBarProps> = ({
   };
 
   return (
-    <div className="p-3 border-t border-cyberpunk-neon-green">
+    <div className="p-3 border-t border-cyberpunk-neon-green flex-shrink-0 chat-input-area">
       <div className="flex gap-2">
         <Textarea
           value={inputValue}
           onChange={e => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Enter message or command..."
-          className="resize-none bg-cyberpunk-dark-blue border-cyberpunk-neon-blue text-cyberpunk-neon-blue"
+          className="resize-none bg-cyberpunk-dark-blue border-cyberpunk-neon-blue text-cyberpunk-neon-blue h-20"
           disabled={isTyping}
         />
         <div className="flex flex-col gap-2">
@@ -65,7 +65,7 @@ const InputBar: React.FC<InputBarProps> = ({
           >
             <Send className="h-4 w-4" />
           </Button>
-          
+
           <label>
             <input
               type="file"
@@ -87,7 +87,7 @@ const InputBar: React.FC<InputBarProps> = ({
               </div>
             </Button>
           </label>
-          
+
           <Button
             size="icon"
             variant="outline"

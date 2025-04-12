@@ -5,49 +5,67 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Camera, Eye, FileImage, Loader2, Upload, Zap, Scan } from 'lucide-react';
+import { Camera, Eye, FileImage, Loader2, Upload, Zap, Scan, Server, Cpu } from 'lucide-react';
 import { visionService, VisionModel, VisionAnalysisResult } from '@/services/vision/VisionService';
+import { ollamaService } from '@/services/ollama';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
 
 const ComputerVision: React.FC = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [models, setModels] = useState<VisionModel[]>([]);
+  const [ollamaModels, setOllamaModels] = useState<VisionModel[]>([]);
   const [selectedModel, setSelectedModel] = useState<string>('image-classification-model');
   const [imageUrl, setImageUrl] = useState<string>('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [result, setResult] = useState<VisionAnalysisResult | null>(null);
   const [webGPUSupported, setWebGPUSupported] = useState(false);
-  
+  const [ollamaConnected, setOllamaConnected] = useState(false);
+
   // Initialize Vision service
   useEffect(() => {
     const initVision = async () => {
+      // Check Ollama connection
+      const isOllamaConnected = await ollamaService.checkConnection();
+      setOllamaConnected(isOllamaConnected);
+
+      // Initialize vision service
       const initialized = await visionService.initialize();
       if (initialized) {
         setIsInitialized(true);
         setModels(visionService.getAvailableModels());
+        setOllamaModels(visionService.getOllamaModels());
         setWebGPUSupported(visionService.isWebGPUSupported());
       } else {
         toast.error('Failed to initialize Vision service');
       }
     };
-    
+
     initVision();
   }, []);
-  
+
   // Handle model selection
   const handleModelSelect = async (modelId: string) => {
     setSelectedModel(modelId);
-    
+
     // Check if model is loaded, if not, load it
     if (!visionService.isModelLoaded(modelId)) {
       setIsLoading(true);
       await visionService.loadModel(modelId);
       setIsLoading(false);
     }
+
+    // Reset result when changing models
+    setResult(null);
   };
-  
+
+  // Handle model selection from dropdown
+  const handleModelChange = (value: string) => {
+    handleModelSelect(value);
+  };
+
   // Handle file selection
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -57,26 +75,26 @@ const ComputerVision: React.FC = () => {
       setImageUrl(objectUrl);
     }
   };
-  
+
   // Handle URL input
   const handleUrlChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setImageUrl(event.target.value);
     setSelectedFile(null);
   };
-  
+
   // Handle image analysis
   const analyzeImage = async () => {
     if (!imageUrl) {
       toast.warning('Please select an image or enter a URL');
       return;
     }
-    
+
     setIsLoading(true);
-    
+
     try {
       // Pass the URL string directly, the service will now handle it
       const analysisResult = await visionService.analyzeImage(imageUrl, selectedModel);
-      
+
       if (analysisResult) {
         setResult(analysisResult);
       } else {
@@ -89,20 +107,20 @@ const ComputerVision: React.FC = () => {
       setIsLoading(false);
     }
   };
-  
+
   // Use sample image
   const useSampleImage = useCallback((sampleUrl: string) => {
     setImageUrl(sampleUrl);
     setSelectedFile(null);
   }, []);
-  
+
   // Render the results based on task type
   const renderResults = () => {
     if (!result) return null;
-    
+
     const model = models.find(m => m.id === selectedModel);
     if (!model) return null;
-    
+
     switch (model.task) {
       case 'image-classification':
         return (
@@ -114,7 +132,7 @@ const ComputerVision: React.FC = () => {
                   <span className="text-sm">{prediction.label}</span>
                   <div className="flex items-center">
                     <div className="w-40 bg-muted h-2 rounded-full overflow-hidden mr-3">
-                      <div 
+                      <div
                         className="h-full bg-primary"
                         style={{ width: `${prediction.confidence * 100}%` }}
                       ></div>
@@ -128,23 +146,23 @@ const ComputerVision: React.FC = () => {
             </div>
           </div>
         );
-        
+
       case 'object-detection':
         // Use the image URL from the result or fall back to the current imageUrl state
         const displayUrl = result.imageUrl || imageUrl;
-        
+
         return (
           <div className="space-y-4">
             <h3 className="text-lg font-medium">Objects Detected:</h3>
             <div className="relative mb-4">
               <AspectRatio ratio={1} className="bg-muted">
-                <img 
-                  src={displayUrl} 
-                  alt="Analyzed" 
+                <img
+                  src={displayUrl}
+                  alt="Analyzed"
                   className="rounded-md object-cover"
                 />
                 {Array.isArray(result.result) && result.result.map((obj, idx) => (
-                  <div 
+                  <div
                     key={idx}
                     className="absolute border-2 border-red-500 flex items-center justify-center"
                     style={{
@@ -161,7 +179,7 @@ const ComputerVision: React.FC = () => {
                 ))}
               </AspectRatio>
             </div>
-            
+
             <div className="space-y-2">
               {Array.isArray(result.result) && result.result.map((obj, idx) => (
                 <div key={idx} className="flex items-center justify-between">
@@ -173,14 +191,14 @@ const ComputerVision: React.FC = () => {
                   </span>
                 </div>
               ))}
-              
+
               {(!Array.isArray(result.result) || result.result.length === 0) && (
                 <p className="text-sm text-muted-foreground">No objects detected</p>
               )}
             </div>
           </div>
         );
-        
+
       default:
         return (
           <pre className="text-xs bg-muted p-3 rounded-md overflow-auto max-h-[200px]">
@@ -216,7 +234,7 @@ const ComputerVision: React.FC = () => {
           Analyze images using computer vision models
         </CardDescription>
       </CardHeader>
-      
+
       <CardContent className="space-y-4">
         {!isInitialized ? (
           <div className="flex flex-col items-center justify-center h-[300px]">
@@ -225,31 +243,80 @@ const ComputerVision: React.FC = () => {
           </div>
         ) : (
           <>
-            <Tabs
-              defaultValue="image-classification-model"
-              value={selectedModel}
-              onValueChange={handleModelSelect}
-              className="w-full"
-            >
-              <TabsList className="w-full grid grid-cols-2">
-                {models.map((model) => (
-                  <TabsTrigger
-                    key={model.id}
-                    value={model.id}
-                    disabled={isLoading}
-                  >
-                    {model.name}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-              
-              {models.map((model) => (
-                <TabsContent key={model.id} value={model.id} className="pt-4">
-                  <p className="text-sm text-muted-foreground mb-4">{model.description}</p>
-                </TabsContent>
-              ))}
-            </Tabs>
-            
+            <div className="mb-6">
+              <h3 className="text-lg font-medium mb-2">Select Vision Model</h3>
+              <Select value={selectedModel} onValueChange={handleModelChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a vision model" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ollamaModels.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel className="flex items-center gap-2">
+                        <Server className="h-4 w-4" /> Ollama Vision Models
+                      </SelectLabel>
+                      {ollamaModels.map(model => (
+                        <SelectItem
+                          key={model.id}
+                          value={model.id}
+                          className="pl-6"
+                        >
+                          <div className="flex flex-col">
+                            <span>{model.name}</span>
+                            <span className="text-xs text-muted-foreground truncate max-w-[250px]">
+                              {model.description}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
+
+                  <SelectGroup>
+                    <SelectLabel className="flex items-center gap-2">
+                      <Cpu className="h-4 w-4" /> Local Vision Models
+                    </SelectLabel>
+                    {models.filter(m => m.source === 'local').map(model => (
+                      <SelectItem
+                        key={model.id}
+                        value={model.id}
+                        className="pl-6"
+                      >
+                        <div className="flex flex-col">
+                          <span>{model.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {model.description}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+
+              {/* Display selected model info */}
+              {selectedModel && (
+                <div className="mt-2 text-xs text-muted-foreground">
+                  {selectedModel.startsWith('ollama-') ? (
+                    <div className="flex items-center gap-1">
+                      <Server className="h-3 w-3" />
+                      <span>Using Ollama model: {selectedModel.replace('ollama-', '')}</span>
+                      {!ollamaConnected && (
+                        <Badge variant="outline" className="ml-2 text-red-500 border-red-500">
+                          Ollama not connected
+                        </Badge>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1">
+                      <Cpu className="h-3 w-3" />
+                      <span>Using local model: {selectedModel}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div className="grid gap-4">
               <div className="flex flex-col md:flex-row items-start gap-4">
                 <div className="flex-1 w-full space-y-4">
@@ -263,7 +330,7 @@ const ComputerVision: React.FC = () => {
                       disabled={isLoading}
                     />
                   </div>
-                  
+
                   <div className="flex flex-col gap-2">
                     <label htmlFor="image-upload" className="text-sm font-medium">Upload Image</label>
                     <div className="flex gap-2">
@@ -285,7 +352,7 @@ const ComputerVision: React.FC = () => {
                       </Button>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Sample Images</label>
                     <div className="flex gap-2 overflow-x-auto py-2">
@@ -308,7 +375,7 @@ const ComputerVision: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="w-full md:w-1/2 space-y-2">
                   <label className="text-sm font-medium">Preview</label>
                   <AspectRatio ratio={1} className="bg-muted rounded-md">
@@ -330,17 +397,25 @@ const ComputerVision: React.FC = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className="flex items-center justify-between pt-4">
               <div className="flex items-center gap-2">
                 <Scan className="h-4 w-4 text-muted-foreground" />
                 <p className="text-xs text-muted-foreground">
-                  {visionService.isModelLoaded(selectedModel) 
-                    ? "Model loaded and ready" 
-                    : "Model will be loaded on first analysis"}
+                  {selectedModel.startsWith('ollama-')
+                    ? (ollamaConnected
+                        ? "Ollama connected and ready"
+                        : "Ollama not connected - please start Ollama")
+                    : (visionService.isModelLoaded(selectedModel)
+                        ? "Model loaded and ready"
+                        : "Model will be loaded on first analysis")
+                  }
                 </p>
               </div>
-              <Button onClick={analyzeImage} disabled={isLoading || !imageUrl}>
+              <Button
+                onClick={analyzeImage}
+                disabled={isLoading || !imageUrl || (selectedModel.startsWith('ollama-') && !ollamaConnected)}
+              >
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -354,7 +429,7 @@ const ComputerVision: React.FC = () => {
                 )}
               </Button>
             </div>
-            
+
             {result && (
               <>
                 <Separator className="my-4" />
@@ -372,9 +447,21 @@ const ComputerVision: React.FC = () => {
           </>
         )}
       </CardContent>
-      
+
       <CardFooter className="flex justify-between text-xs text-muted-foreground">
-        <p>Powered by Hugging Face Transformers</p>
+        <div className="flex items-center gap-2">
+          {selectedModel.startsWith('ollama-') ? (
+            <>
+              <Server className="h-3 w-3" />
+              <p>Powered by Ollama</p>
+            </>
+          ) : (
+            <>
+              <Cpu className="h-3 w-3" />
+              <p>Powered by Hugging Face Transformers</p>
+            </>
+          )}
+        </div>
         <p>{webGPUSupported ? 'Using WebGPU acceleration' : 'Using CPU'}</p>
       </CardFooter>
     </Card>

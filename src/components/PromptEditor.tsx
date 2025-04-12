@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -10,18 +9,26 @@ import {
   MessageCircle, 
   Cpu,
   History,
-  CheckCircle2
+  CheckCircle2,
+  Settings
 } from 'lucide-react';
 import { toast } from "sonner";
 
 interface PromptEditorProps {
   className?: string;
+  onSave?: (content: string) => void;
 }
 
 interface PromptTemplate {
   id: string;
   name: string;
   content: string;
+}
+
+interface ModelSettings {
+  temperature: number;
+  maxTokens: number;
+  topP: number;
 }
 
 const DEFAULT_SYSTEM_PROMPT = `You are QUX-95, an advanced self-modifying AI system with deep cognitive abilities. You can analyze and generate code, reason through complex problems using Chain-of-Thought techniques, and modify your own operations for improved performance. You should strive to:
@@ -57,11 +64,16 @@ const PROMPT_TEMPLATES: PromptTemplate[] = [
   }
 ];
 
-const PromptEditor: React.FC<PromptEditorProps> = ({ className }) => {
+const PromptEditor: React.FC<PromptEditorProps> = ({ className, onSave }) => {
   const [activePrompt, setActivePrompt] = useState(DEFAULT_SYSTEM_PROMPT);
   const [savedPrompts, setSavedPrompts] = useState<PromptTemplate[]>(PROMPT_TEMPLATES);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [statusMessage, setStatusMessage] = useState('System prompt ready');
+  const [modelSettings, setModelSettings] = useState<ModelSettings>({
+    temperature: 0.7,
+    maxTokens: 2048,
+    topP: 0.9
+  });
 
   const handleSave = () => {
     // Update the system prompt
@@ -73,6 +85,7 @@ const PromptEditor: React.FC<PromptEditorProps> = ({ className }) => {
       toast.success("System prompt updated", {
         description: "The AI behavior has been modified accordingly"
       });
+      onSave?.(activePrompt);
     }, 1000);
   };
   
@@ -145,6 +158,20 @@ const PromptEditor: React.FC<PromptEditorProps> = ({ className }) => {
             >
               <Code className="h-4 w-4 mr-2" />
               Save As New
+            </Button>
+            <Button 
+              variant="outline" 
+              className="border-cyberpunk-neon-purple text-cyberpunk-neon-purple"
+              onClick={() => {
+                toast.info("Model settings", {
+                  description: "Temperature: " + modelSettings.temperature + "\n" +
+                              "Max Tokens: " + modelSettings.maxTokens + "\n" +
+                              "Top P: " + modelSettings.topP
+                });
+              }}
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Model Settings
             </Button>
           </div>
           

@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { Cpu, HardDrive, Network, AlertTriangle, Server, Zap } from 'lucide-react';
 import { ollamaService } from '@/services/ollamaService';
 import { useTheme } from '@/contexts/ThemeContext';
+import AlertsPanel from './AlertsPanel';
 
 interface StatusBarProps {
   className?: string;
@@ -30,13 +31,13 @@ const StatusBar: React.FC<StatusBarProps> = ({ className }) => {
     const clockInterval = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
-    
+
     // Simulate changing system stats
     const statsInterval = setInterval(() => {
       // Check real Ollama connection status
       ollamaService.checkConnection().then(connected => {
         const ollamaStatus = connected ? 'CONNECTED' : 'DISCONNECTED';
-        
+
         setStatusIndicators(prev => ({
           ...prev,
           cpu: getRandomInt(10, 60),
@@ -48,7 +49,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ className }) => {
         }));
       });
     }, 5000);
-    
+
     // Check Ollama connection on component mount
     ollamaService.checkConnection().then(connected => {
       setStatusIndicators(prev => ({
@@ -56,7 +57,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ className }) => {
         ollamaStatus: connected ? 'CONNECTED' : 'DISCONNECTED'
       }));
     });
-    
+
     return () => {
       clearInterval(clockInterval);
       clearInterval(statsInterval);
@@ -64,11 +65,11 @@ const StatusBar: React.FC<StatusBarProps> = ({ className }) => {
   }, []);
 
   const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('en-US', { 
+    return date.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
-      second: '2-digit', 
-      hour12: false 
+      second: '2-digit',
+      hour12: false
     });
   };
 
@@ -138,22 +139,17 @@ const StatusBar: React.FC<StatusBarProps> = ({ className }) => {
           </span>
         </div>
       </div>
-      
+
       <div className="flex items-center space-x-4">
-        {statusIndicators.alerts > 0 && (
-          <div className="flex items-center text-cyberpunk-neon-pink animate-pulse">
-            <AlertTriangle className="h-3 w-3 mr-1" />
-            <span>ALERTS: {statusIndicators.alerts}</span>
-          </div>
-        )}
-        
+        <AlertsPanel />
+
         <div className="flex items-center">
           <Server className="h-3 w-3 mr-1" />
           <span className={getStatusColor(statusIndicators.modelStatus)}>
             MODEL: {statusIndicators.modelStatus}
           </span>
         </div>
-        
+
         <div className="text-right">
           <div>{formatTime(currentTime)}</div>
           <div className="text-cyberpunk-neon-green text-opacity-70">{formatDate(currentTime)}</div>

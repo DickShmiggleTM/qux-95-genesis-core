@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { 
+import {
   Send, Zap, FileUp, Trash2, Settings as SettingsIcon,
   Loader2
 } from 'lucide-react';
@@ -51,7 +51,7 @@ const ChatWindow = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const autoRespondTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [contextRetrieval, setContextRetrieval] = useState(true);
-  
+
   // External triggers for autonomous mode
   useEffect(() => {
     if (autoMode && !autoRespond) {
@@ -64,8 +64,10 @@ const ChatWindow = ({
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (messagesEndRef.current && messagesEndRef.current.parentElement) {
+      // Use scrollTop instead of scrollIntoView to prevent GUI lifting
+      const container = messagesEndRef.current.parentElement;
+      container.scrollTop = container.scrollHeight;
     }
   }, [messages]);
 
@@ -75,38 +77,38 @@ const ChatWindow = ({
       if (autoRespondTimeoutRef.current) {
         clearTimeout(autoRespondTimeoutRef.current);
       }
-      
+
       autoRespondTimeoutRef.current = setTimeout(() => {
         handleGenerateResponse();
       }, autoRespondDelay * 1000);
     }
-    
+
     return () => {
       if (autoRespondTimeoutRef.current) {
         clearTimeout(autoRespondTimeoutRef.current);
       }
     };
   }, [messages, autoRespond, autoRespondDelay]);
-  
+
   // Autonomous thinking for complex situations
   useEffect(() => {
     if (autoMode && messages.length > 3) {
       // Check if we have a complex conversation that might need reasoning
       const recentMessages = messages.slice(-3);
       const complexityTriggers = ['why', 'how', 'explain', 'analyze', 'complex', 'difficult'];
-      
-      const hasComplexity = recentMessages.some(msg => 
-        complexityTriggers.some(trigger => 
+
+      const hasComplexity = recentMessages.some(msg =>
+        complexityTriggers.some(trigger =>
           msg.content.toLowerCase().includes(trigger)
         )
       );
-      
+
       if (hasComplexity && !useReasoning) {
         setUseReasoning(true);
         toast.info("Complex query detected", {
           description: "Activating reasoning capabilities"
         });
-        
+
         // Also increase context window size for complex queries
         try {
           const currentOptions = enhancedMemoryManager.getOptions();
@@ -115,7 +117,7 @@ const ChatWindow = ({
               contextWindowSize: 15,
               adaptiveMode: true
             });
-            
+
             toast.info("Context window expanded", {
               description: "Using larger context for complex query"
             });
@@ -140,14 +142,14 @@ const ChatWindow = ({
         await ollamaService.loadAvailableModels();
       }
     };
-    
+
     checkConnection();
   }, []);
 
   const handleGenerateResponse = async () => {
     // Don't generate if already typing
     if (isTyping) return;
-    
+
     // Get last few messages for context
     const recentMessages = messages
       .filter(msg => msg.role !== 'system') // Exclude system messages
@@ -156,25 +158,25 @@ const ChatWindow = ({
         role: msg.role,
         content: msg.content
       }));
-    
+
     if (recentMessages.length === 0) return;
-    
+
     setIsTyping(true);
-    
+
     try {
       // Prepare system prompt with configuration for reasoning if enabled
       let systemPrompt = "You are QUX-95, an autonomous AI assistant with self-modification capabilities. You're running in a cyberpunk-themed terminal interface.";
-      
+
       if (useReasoning) {
         systemPrompt += " Use step-by-step reasoning to solve complex problems and provide detailed explanations. Break down your thought process clearly.";
       }
-      
+
       // Add context from enhanced memory if enabled
       if (contextRetrieval) {
         try {
           // Get formatted context from memory manager
           const memoryContext = enhancedMemoryManager.getFormattedContext();
-          
+
           if (memoryContext) {
             systemPrompt += "\n\nRELEVANT CONTEXT:\n" + memoryContext;
           }
@@ -183,15 +185,15 @@ const ChatWindow = ({
           // Continue without memory context
         }
       }
-      
+
       // Use Ollama service for actual response
       const availableModels = ollamaService.getModels();
-      
+
       // If we have models from Ollama, use the currently selected one
       // otherwise fall back to simulated responses
       if (availableModels.length > 0 && ollamaService.isConnected()) {
         const currentModel = ollamaService.getCurrentModel() || availableModels[0].id;
-        
+
         // Create placeholder for assistant response
         const assistantMessage: Message = {
           role: 'assistant',
@@ -199,17 +201,17 @@ const ChatWindow = ({
           timestamp: new Date(),
         };
         setMessages(prev => [...prev, assistantMessage]);
-        
+
         if (useStreaming) {
           // Handle streaming response
           await ollamaService.streamChatCompletion(
             [
               {
-                role: "system", 
+                role: "system",
                 content: systemPrompt
               },
               ...recentMessages.map(msg => ({
-                role: msg.role, 
+                role: msg.role,
                 content: msg.content
               }))
             ],
@@ -224,7 +226,7 @@ const ChatWindow = ({
                 };
                 return newMessages;
               });
-              
+
               if (done) {
                 setIsTyping(false);
                 // If auto mode is enabled, potentially trigger a self-improvement action
@@ -243,11 +245,11 @@ const ChatWindow = ({
           const response = await ollamaService.generateChatCompletion(
             [
               {
-                role: "system", 
+                role: "system",
                 content: systemPrompt
               },
               ...recentMessages.map(msg => ({
-                role: msg.role, 
+                role: msg.role,
                 content: msg.content
               }))
             ],
@@ -257,7 +259,7 @@ const ChatWindow = ({
               max_tokens: maxTokens
             }
           );
-          
+
           // Update the last message with the actual response
           setMessages(prev => {
             const newMessages = [...prev];
@@ -268,9 +270,9 @@ const ChatWindow = ({
             };
             return newMessages;
           });
-          
+
           setIsTyping(false);
-          
+
           // If auto mode is enabled, potentially trigger a self-improvement action
           if (autoMode && Math.random() < 0.15) { // 15% chance
             triggerAutonomousAction();
@@ -285,29 +287,29 @@ const ChatWindow = ({
       toast.error("Failed to generate response", {
         description: "There was an issue connecting to the language model"
       });
-      
+
       // Add error message
       const errorMessage: Message = {
         role: 'system',
         content: `Error generating response: ${error instanceof Error ? error.message : String(error)}`,
         timestamp: new Date(),
       };
-      
+
       setMessages(prev => [...prev, errorMessage]);
       setIsTyping(false);
     }
   };
-  
+
   const triggerAutonomousAction = () => {
     if (!autoMode) return;
-    
+
     // Possible autonomous actions
     const actions = [
       {
         name: "Parameter optimization",
         description: "Adjusting parameters for optimal response quality",
         execute: () => {
-          const newTemp = Math.max(0.1, Math.min(0.9, temperature + (Math.random() * 0.2 - 0.1))); 
+          const newTemp = Math.max(0.1, Math.min(0.9, temperature + (Math.random() * 0.2 - 0.1)));
           setTemperature(newTemp);
           return `Adjusted temperature to ${newTemp.toFixed(2)}`;
         }
@@ -329,22 +331,22 @@ const ChatWindow = ({
         }
       }
     ];
-    
+
     // Select random action
     const action = actions[Math.floor(Math.random() * actions.length)];
-    
+
     // Execute the action
     const result = action.execute();
-    
+
     // Add system message
     const systemMessage: Message = {
       role: 'system',
       content: `AUTONOMOUS ACTION: ${action.name}\n${result}`,
       timestamp: new Date()
     };
-    
+
     setMessages(prev => [...prev, systemMessage]);
-    
+
     // Display toast
     toast.info(`QUX-95 Autonomous Action: ${action.name}`, {
       description: action.description
@@ -354,10 +356,10 @@ const ChatWindow = ({
   const simulateResponse = (userInput: string) => {
     // Simulate thinking time
     const responseDelay = 1000 + Math.random() * 2000;
-    
+
     setTimeout(() => {
       let response: string;
-      
+
       if (userInput.toLowerCase().includes('hello') || userInput.toLowerCase().includes('hi')) {
         response = "Greetings, human. QUX-95 Genesis Core online and operational. How may I assist your cognitive processes today?";
       } else if (userInput.toLowerCase().includes('help')) {
@@ -367,13 +369,13 @@ const ChatWindow = ({
       } else {
         response = "I've processed your input. As an advanced AI system with self-modification capabilities, I can adapt my reasoning processes to better assist with your queries. Would you like me to analyze this further or modify my approach?";
       }
-      
+
       const assistantMessage: Message = {
         role: 'assistant',
         content: response,
         timestamp: new Date(),
       };
-      
+
       setMessages(prev => [...prev, assistantMessage]);
       setIsTyping(false);
     }, responseDelay);
@@ -395,16 +397,16 @@ const ChatWindow = ({
       content: inputValue,
       timestamp: new Date(),
     };
-    
+
     setMessages(prev => [...prev, userMessage]);
-    
+
     if (onSendMessage) {
       onSendMessage(inputValue);
     }
-    
+
     // Clear input
     setInputValue("");
-    
+
     // If not in auto-respond mode, generate response immediately
     if (!autoRespond) {
       handleGenerateResponse();
@@ -415,7 +417,7 @@ const ChatWindow = ({
     const parts = command.split(' ');
     const cmd = parts[0].toLowerCase();
     const args = parts.slice(1);
-    
+
     switch (cmd) {
       case 'clear':
         clearChat();
@@ -463,7 +465,7 @@ const ChatWindow = ({
         if (args.length > 0) {
           const cmd = args.join(' ');
           addSystemMessage(`Executing: ${cmd}`);
-          
+
           // Use Ollama to execute the command
           ollamaService.executeCommand(cmd)
             .then(result => {
@@ -487,7 +489,7 @@ const ChatWindow = ({
       content,
       timestamp: new Date(),
     };
-    
+
     setMessages(prev => [...prev, systemMessage]);
   };
 
@@ -499,10 +501,10 @@ const ChatWindow = ({
   };
 
   const formatTimestamp = (date: Date) => {
-    return date.toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
+    return date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
       minute: '2-digit',
-      hour12: false 
+      hour12: false
     });
   };
 
@@ -518,30 +520,30 @@ const ChatWindow = ({
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
-    
+
     const file = e.target.files[0];
     const reader = new FileReader();
-    
+
     reader.onload = (event) => {
       if (!event.target?.result) return;
-      
+
       try {
         // Try to read as text
         const content = event.target.result as string;
         // Truncate if too large
-        const truncatedContent = content.length > 1000 
-          ? content.substring(0, 1000) + "... [content truncated]" 
+        const truncatedContent = content.length > 1000
+          ? content.substring(0, 1000) + "... [content truncated]"
           : content;
-          
+
         // Add file content to chat
         const fileMessage: Message = {
           role: 'user',
           content: `[Uploaded file: ${file.name}]\n\n${truncatedContent}`,
           timestamp: new Date(),
         };
-        
+
         setMessages(prev => [...prev, fileMessage]);
-        
+
         // Process the document in the background if it's a supported format
         const fileExt = file.name.split('.').pop()?.toLowerCase();
         if (['pdf', 'txt', 'doc', 'docx'].includes(fileExt || '')) {
@@ -553,7 +555,7 @@ const ChatWindow = ({
               addSystemMessage(`Error processing file: ${error instanceof Error ? error.message : String(error)}`);
             });
         }
-        
+
         // If not in auto-respond mode, generate response immediately
         if (!autoRespond) {
           handleGenerateResponse();
@@ -565,15 +567,15 @@ const ChatWindow = ({
         });
       }
     };
-    
+
     reader.onerror = () => {
       toast.error("Failed to read file", {
         description: "There was an error processing the file"
       });
     };
-    
+
     reader.readAsText(file);
-    
+
     // Reset the input
     e.target.value = '';
   };
@@ -583,27 +585,27 @@ const ChatWindow = ({
     // Only store non-system messages to memory
     if (messages.length > 1) {
       const latestMessage = messages[messages.length - 1];
-      
+
       if (latestMessage.role !== 'system') {
         try {
           // Determine importance based on message characteristics
           let importance = 0.5; // Default importance
-          
+
           // Long messages are likely more important
           if (latestMessage.content.length > 200) {
             importance += 0.1;
           }
-          
+
           // Messages with questions are more important
           if (latestMessage.content.includes('?')) {
             importance += 0.1;
           }
-          
+
           // User messages slightly more important than assistant
           if (latestMessage.role === 'user') {
             importance += 0.05;
           }
-          
+
           // Store in memory system
           enhancedMemoryManager.storeMemory(
             latestMessage.content,
@@ -632,9 +634,9 @@ const ChatWindow = ({
         <div className="flex items-center gap-1">
           <Popover>
             <PopoverTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="icon" 
+              <Button
+                variant="ghost"
+                size="icon"
                 className="h-4 w-4 text-cyberpunk-dark hover:bg-transparent hover:text-cyberpunk-dark-blue p-0"
               >
                 <SettingsIcon className="h-3 w-3" />
@@ -646,24 +648,24 @@ const ChatWindow = ({
                   <h4 className="font-semibold text-sm">Chat Settings</h4>
                   <div className="flex items-center justify-between">
                     <Label htmlFor="auto-respond">Auto-respond</Label>
-                    <Switch 
-                      id="auto-respond" 
+                    <Switch
+                      id="auto-respond"
                       checked={autoRespond}
                       onCheckedChange={setAutoRespond}
                       className="data-[state=checked]:bg-cyberpunk-neon-green"
                     />
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <Label htmlFor="use-streaming">Stream responses</Label>
-                    <Switch 
-                      id="use-streaming" 
+                    <Switch
+                      id="use-streaming"
                       checked={useStreaming}
                       onCheckedChange={setUseStreaming}
                       className="data-[state=checked]:bg-cyberpunk-neon-green"
                     />
                   </div>
-                  
+
                   {autoRespond && (
                     <div className="grid gap-2">
                       <Label htmlFor="auto-respond-delay">Response delay (seconds)</Label>
@@ -679,29 +681,29 @@ const ChatWindow = ({
                     </div>
                   )}
                 </div>
-                
+
                 <div className="space-y-2">
                   <h4 className="font-semibold text-sm">Model Settings</h4>
                   <div className="flex items-center justify-between">
                     <Label htmlFor="use-reasoning">Use reasoning</Label>
-                    <Switch 
-                      id="use-reasoning" 
+                    <Switch
+                      id="use-reasoning"
                       checked={useReasoning}
                       onCheckedChange={setUseReasoning}
                       className="data-[state=checked]:bg-cyberpunk-neon-green"
                     />
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <Label htmlFor="context-retrieval">Context retrieval</Label>
-                    <Switch 
-                      id="context-retrieval" 
+                    <Switch
+                      id="context-retrieval"
                       checked={contextRetrieval}
                       onCheckedChange={setContextRetrieval}
                       className="data-[state=checked]:bg-cyberpunk-neon-green"
                     />
                   </div>
-                  
+
                   <div className="grid gap-2">
                     <Label htmlFor="temperature">Temperature</Label>
                     <Slider
@@ -714,7 +716,7 @@ const ChatWindow = ({
                     />
                     <div className="text-xs text-right">{temperature.toFixed(2)}</div>
                   </div>
-                  
+
                   <div className="grid gap-2">
                     <Label htmlFor="max-tokens">Max Tokens</Label>
                     <Slider
@@ -731,10 +733,10 @@ const ChatWindow = ({
               </div>
             </PopoverContent>
           </Popover>
-          
-          <Button 
-            variant="ghost" 
-            size="icon" 
+
+          <Button
+            variant="ghost"
+            size="icon"
             className="h-4 w-4 text-cyberpunk-dark hover:bg-transparent hover:text-cyberpunk-dark-blue p-0"
             onClick={clearChat}
           >
@@ -742,16 +744,16 @@ const ChatWindow = ({
           </Button>
         </div>
       </div>
-      
+
       <div className="flex-1 overflow-y-auto p-4 pt-6">
         {messages.map((message, i) => (
-          <div 
+          <div
             key={i}
             className={cn(
               "mb-4 px-2 py-1 rounded text-sm",
-              message.role === 'user' 
-                ? "ml-8 text-cyberpunk-neon-blue blue-glow" 
-                : message.role === 'system' 
+              message.role === 'user'
+                ? "ml-8 text-cyberpunk-neon-blue blue-glow"
+                : message.role === 'system'
                   ? "border border-dashed border-cyberpunk-neon-purple text-cyberpunk-neon-purple"
                   : "mr-8"
             )}
@@ -759,9 +761,9 @@ const ChatWindow = ({
             <div className="flex items-center mb-1">
               <span className={cn(
                 "font-bold",
-                message.role === 'user' 
-                  ? "text-cyberpunk-neon-blue" 
-                  : message.role === 'system' 
+                message.role === 'user'
+                  ? "text-cyberpunk-neon-blue"
+                  : message.role === 'system'
                     ? "text-cyberpunk-neon-purple"
                     : "text-cyberpunk-neon-green"
               )}>
@@ -772,7 +774,7 @@ const ChatWindow = ({
             <div className="whitespace-pre-line terminal-text-output">{message.content}</div>
           </div>
         ))}
-        
+
         {isTyping && !useStreaming && (
           <div className="flex items-center text-cyberpunk-neon-green mr-8 mb-4 px-2 py-1">
             <span className="mr-2">QUX-95</span>
@@ -780,10 +782,10 @@ const ChatWindow = ({
             <span className="typing-cursor animate-pulse">thinking</span>
           </div>
         )}
-        
+
         <div ref={messagesEndRef} />
       </div>
-      
+
       <div className="p-3 border-t border-cyberpunk-neon-green">
         <div className="flex gap-2">
           <Textarea
@@ -803,7 +805,7 @@ const ChatWindow = ({
             >
               <Send className="h-4 w-4" />
             </Button>
-            
+
             <label>
               <input
                 type="file"
@@ -824,7 +826,7 @@ const ChatWindow = ({
                 </div>
               </Button>
             </label>
-            
+
             <Button
               size="icon"
               variant="outline"

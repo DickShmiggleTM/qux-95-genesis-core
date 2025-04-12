@@ -14,6 +14,7 @@ import { detectHardwareCapabilities } from './utils/browserCapabilities';
 const Index = lazy(() => import("./pages/Index"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const AdvancedFeatures = lazy(() => import("./pages/AdvancedFeatures"));
+const NeuralCyberneticDashboard = lazy(() => import("./pages/NeuralCyberneticDashboard"));
 
 // Error boundary component with improved handling
 class ErrorBoundary extends React.Component<
@@ -32,10 +33,10 @@ class ErrorBoundary extends React.Component<
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     // Update state with error info for better debugging
     this.setState({ errorInfo });
-    
+
     console.error('Application error:', error);
     console.error('Component stack:', errorInfo.componentStack);
-    
+
     // Log to memory system for later analysis
     try {
       memoryManager.storeMemory(
@@ -47,7 +48,7 @@ class ErrorBoundary extends React.Component<
     } catch (e) {
       console.error('Failed to log error to memory system:', e);
     }
-    
+
     // In a production system, we would send this to a logging service
   }
 
@@ -79,7 +80,7 @@ class ErrorBoundary extends React.Component<
               The system has encountered an error and needs to restart. Your data has been auto-saved.
             </p>
             <div className="flex justify-center">
-              <button 
+              <button
                 className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded"
                 onClick={this.handleReset}
                 aria-label="Restart System"
@@ -98,7 +99,7 @@ class ErrorBoundary extends React.Component<
 
 // Loading component
 const AppLoading = () => (
-  <div 
+  <div
     className="min-h-screen flex flex-col items-center justify-center bg-black"
     aria-label="Loading application"
   >
@@ -117,7 +118,7 @@ const queryClient = new QueryClient({
       meta: {
         errorHandler: (error: unknown) => {
           console.error('Query error:', error);
-          
+
           // Log to memory system
           memoryManager.storeMemory(
             `Query error: ${error instanceof Error ? error.message : String(error)}`,
@@ -125,7 +126,7 @@ const queryClient = new QueryClient({
             { type: 'query', stack: error instanceof Error ? error.stack : undefined },
             0.8 // High importance for query errors
           );
-          
+
           toast.error("Data fetch failed", {
             description: "There was a problem retrieving data"
           });
@@ -144,7 +145,7 @@ interface PageProps {
 const AppWrapper = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [hardwareInfo, setHardwareInfo] = useState<any>(null);
-  
+
   // Initialize system on startup
   useEffect(() => {
     const initializeSystem = async () => {
@@ -152,20 +153,20 @@ const AppWrapper = () => {
         // Detect hardware capabilities
         const hardware = await detectHardwareCapabilities();
         setHardwareInfo(hardware);
-        
+
         // Load saved state
         const savedState = saveSystem.loadSystemState();
-        
+
         if (savedState) {
           toast.success("System restored", {
             description: `Previous session data loaded successfully`
           });
-          
+
           // Initialize memory manager with optimal settings based on hardware
-          const memoryCapacity = hardware.memory < 4 ? 
-            { shortTermCapacity: 30, longTermCapacity: 500 } : 
+          const memoryCapacity = hardware.memory < 4 ?
+            { shortTermCapacity: 30, longTermCapacity: 500 } :
             { shortTermCapacity: 50, longTermCapacity: 1000 };
-          
+
           memoryManager.setOptions(memoryCapacity);
         }
       } catch (error) {
@@ -177,14 +178,14 @@ const AppWrapper = () => {
         setIsInitialized(true);
       }
     };
-    
+
     initializeSystem();
-    
+
     // Set up global error handler
     const originalOnError = window.onerror;
     window.onerror = (message, source, lineno, colno, error) => {
       console.error("Global error:", { message, source, lineno, colno, error });
-      
+
       // Log to memory system
       try {
         memoryManager.storeMemory(
@@ -196,23 +197,23 @@ const AppWrapper = () => {
       } catch (e) {
         console.error('Failed to log error to memory:', e);
       }
-      
+
       toast.error("System error detected", {
         description: "An error occurred but has been contained"
       });
-      
+
       // Call original handler if exists
       if (originalOnError) {
         return originalOnError(message, source, lineno, colno, error);
       }
       return false;
     };
-    
+
     return () => {
       window.onerror = originalOnError;
     };
   }, []);
-  
+
   if (!isInitialized) {
     return <AppLoading />;
   }
@@ -236,6 +237,7 @@ const App = ({ hardwareInfo }: { hardwareInfo: any }) => (
             <Routes>
               <Route path="/" element={<Index hardwareInfo={hardwareInfo} />} />
               <Route path="/advanced-features" element={<AdvancedFeatures hardwareInfo={hardwareInfo} />} />
+              <Route path="/neural-cybernetic" element={<NeuralCyberneticDashboard />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

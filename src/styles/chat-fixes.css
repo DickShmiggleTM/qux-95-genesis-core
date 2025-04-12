@@ -1,0 +1,22 @@
+/* Prevent layout shifts during chat generation */
+.chat-container {
+  contain: layout size;
+  isolation: isolate;
+}
+
+.message-list-container {
+  contain: content;
+  overflow-anchor: none;
+}
+
+/* Ensure the chat window doesn't push other elements */
+.chat-window {
+  contain: strict;
+  overflow: hidden;
+}
+
+/* Prevent text area from causing layout shifts */
+.chat-input-area {
+  contain: layout;
+  flex-shrink: 0;
+}
