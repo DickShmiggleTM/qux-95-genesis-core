@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Trash2, FileEdit, Wrench, Laptop } from 'lucide-react';
+import { Trash2, FileEdit, Wrench, LineChart, Laptop } from 'lucide-react';
 import SettingsMenu from './SettingsMenu';
 
 interface HeaderProps {
@@ -10,6 +10,7 @@ interface HeaderProps {
   modelSelector?: React.ReactNode;
   onOpenPromptEditor?: () => void;
   onOpenQuxTools?: () => void;
+  onToggleChangeLogs?: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
@@ -18,7 +19,8 @@ const Header: React.FC<HeaderProps> = ({
   historyPanel, 
   modelSelector,
   onOpenPromptEditor,
-  onOpenQuxTools
+  onOpenQuxTools,
+  onToggleChangeLogs
 }) => {
   return (
     <div className="flex-shrink-0 bg-cyberpunk-neon-green h-5 flex items-center justify-between px-2 z-10">
@@ -51,6 +53,17 @@ const Header: React.FC<HeaderProps> = ({
             title="Qux Tools"
           >
             <Wrench className="h-3 w-3" />
+          </Button>
+        )}
+        {onToggleChangeLogs && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-4 w-4 text-cyberpunk-dark hover:bg-transparent hover:text-cyberpunk-dark-blue p-0"
+            onClick={onToggleChangeLogs}
+            title="Change Logs"
+          >
+            <LineChart className="h-3 w-3" />
           </Button>
         )}
         {historyPanel}
