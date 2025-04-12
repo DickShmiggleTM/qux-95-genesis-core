@@ -2148,3 +2148,4 @@ export class NLPProcessor extends EventEmitter {
   }
 }
 
+export const nlpProcessor = new NLPProcessor();
