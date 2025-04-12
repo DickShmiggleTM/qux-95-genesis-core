@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -13,6 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { enhancedMemoryManager } from '@/services/memory/EnhancedMemoryManager';
 
 interface Message {
   role: 'system' | 'user' | 'assistant';
@@ -27,12 +27,12 @@ interface ChatWindowProps {
   autoMode?: boolean;
 }
 
-const ChatWindow: React.FC<ChatWindowProps> = ({
+const ChatWindow = ({
   className,
   modelName = "QUX-95",
   onSendMessage,
   autoMode = false
-}) => {
+}: ChatWindowProps) => {
   const [inputValue, setInputValue] = useState("");
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -106,9 +106,26 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         toast.info("Complex query detected", {
           description: "Activating reasoning capabilities"
         });
+        
+        // Also increase context window size for complex queries
+        try {
+          const currentOptions = enhancedMemoryManager.getOptions();
+          if (currentOptions.contextWindowSize < 15) {
+            enhancedMemoryManager.setOptions({
+              contextWindowSize: 15,
+              adaptiveMode: true
+            });
+            
+            toast.info("Context window expanded", {
+              description: "Using larger context for complex query"
+            });
+          }
+        } catch (error) {
+          console.error('Failed to adjust context window size:', error);
+        }
       }
     }
-  }, [messages, autoMode]);
+  }, [messages, autoMode, useReasoning]);
 
   // Check Ollama connection on component mount
   useEffect(() => {
@@ -152,15 +169,18 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         systemPrompt += " Use step-by-step reasoning to solve complex problems and provide detailed explanations. Break down your thought process clearly.";
       }
       
-      // Add context retrieval if enabled
-      let context = "";
+      // Add context from enhanced memory if enabled
       if (contextRetrieval) {
-        const recentContext = ollamaService.getContext(5);
-        if (recentContext.length > 0) {
-          context = "\nRecent context: " + JSON.stringify(recentContext.map(c => {
-            return {type: c.type, summary: c.type === 'chat' ? 'Previous chat interaction' : 'System activity'};
-          }));
-          systemPrompt += context;
+        try {
+          // Get formatted context from memory manager
+          const memoryContext = enhancedMemoryManager.getFormattedContext();
+          
+          if (memoryContext) {
+            systemPrompt += "\n\nRELEVANT CONTEXT:\n" + memoryContext;
+          }
+        } catch (error) {
+          console.error('Failed to retrieve context from memory:', error);
+          // Continue without memory context
         }
       }
       
@@ -557,6 +577,49 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     // Reset the input
     e.target.value = '';
   };
+
+  // Store messages in memory system
+  useEffect(() => {
+    // Only store non-system messages to memory
+    if (messages.length > 1) {
+      const latestMessage = messages[messages.length - 1];
+      
+      if (latestMessage.role !== 'system') {
+        try {
+          // Determine importance based on message characteristics
+          let importance = 0.5; // Default importance
+          
+          // Long messages are likely more important
+          if (latestMessage.content.length > 200) {
+            importance += 0.1;
+          }
+          
+          // Messages with questions are more important
+          if (latestMessage.content.includes('?')) {
+            importance += 0.1;
+          }
+          
+          // User messages slightly more important than assistant
+          if (latestMessage.role === 'user') {
+            importance += 0.05;
+          }
+          
+          // Store in memory system
+          enhancedMemoryManager.storeMemory(
+            latestMessage.content,
+            'chat',
+            {
+              role: latestMessage.role,
+              timestamp: latestMessage.timestamp.toISOString()
+            },
+            importance
+          );
+        } catch (error) {
+          console.error('Failed to store message in memory:', error);
+        }
+      }
+    }
+  }, [messages]);
 
   return (
     <div className={cn(

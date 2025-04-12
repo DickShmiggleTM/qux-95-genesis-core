@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import Terminal, { TerminalRefHandle } from './Terminal';
 import ModelSelector from './ModelSelector';
@@ -13,7 +12,11 @@ import PromptEditor from './PromptEditor';
 import WorkspaceBrowser from './WorkspaceBrowser';
 import GitHubManager from './GitHubManager';
 import LearningSystem from './LearningSystem';
+import MemoryStats from './MemoryStats';
+import DraggableWindow from './DraggableWindow';
+import { SystemStatusDashboard } from './LazyComponents';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { 
   TerminalSquare, 
   Settings as SettingsIcon, 
@@ -29,7 +32,12 @@ import {
   Github,
   Brain,
   Moon,
-  Sun
+  Sun,
+  BarChart,
+  Wand,
+  Globe,
+  Gauge,
+  ChevronDown
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from "sonner";
@@ -40,6 +48,9 @@ import { reasoningSystem } from '@/services/reasoningSystem';
 import { workspaceService } from '@/services/workspaceService';
 import { githubService } from '@/services/githubService';
 import { learningService } from '@/services/learningService';
+import { autonomousService } from '@/services/autonomousService';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 
 // Define the available tabs for the main interface
 type TabType = 'terminal' | 'chat' | 'code' | 'settings' | 'rag' | 'image-gen' | 'prompt-edit' | 'workspace' | 'github' | 'learning';
@@ -53,6 +64,8 @@ const Dashboard = () => {
   const [currentModel, setCurrentModel] = useState<OllamaModel | null>(null);
   const [autoMode, setAutoMode] = useState(false);
   const [autoModeCounter, setAutoModeCounter] = useState(0);
+  const [showAdvancedFeaturesWindow, setShowAdvancedFeaturesWindow] = useState(false);
+  const [showSystemStatusWindow, setShowSystemStatusWindow] = useState(false);
   
   // Create a reference to the terminal component
   const terminalRef = useRef<TerminalRefHandle>(null);
@@ -89,6 +102,12 @@ const Dashboard = () => {
           
           // Enable learning system by default
           learningService.enable();
+          
+          // Initialize autonomous service (monitor mode)
+          // It will start in monitoring-only mode but won't activate scanning yet
+          if (!autonomousService.isServiceActive()) {
+            autonomousService.setAutonomyLevel(1);
+          }
         } else {
           toast.error("Failed to connect to Ollama", {
             description: "Make sure Ollama is running locally"
@@ -383,6 +402,9 @@ Type 'help' for available commands.`;
         description: "All subsystems online and operational"
       });
       
+      // Show system status window when going online
+      setShowSystemStatusWindow(true);
+      
       // Log to workspace
       workspaceService.log("System activated", "system.log");
     } else {
@@ -391,8 +413,35 @@ Type 'help' for available commands.`;
         description: "Core functions are now offline"
       });
       
+      // Close system status window when going offline
+      setShowSystemStatusWindow(false);
+      
       // Log to workspace
       workspaceService.log("System deactivated", "system.log");
+    }
+  };
+
+  // Add a method to handle starting self-coding
+  const handleStartSelfCoding = () => {
+    if (autonomousService.isServiceActive()) {
+      autonomousService.stop();
+      toast.info("Autonomous self-coding stopped", {
+        description: "QUX-95 is no longer monitoring the codebase for issues"
+      });
+    } else {
+      const success = autonomousService.start(1); // Start in monitor-only mode
+      if (success) {
+        toast.success("Autonomous self-coding activated", {
+          description: "QUX-95 is now monitoring the codebase for issues"
+        });
+        
+        // Suggest opening self-modification panel to configure
+        setTimeout(() => {
+          toast.info("Tip: Open self-modification panel to configure autonomy settings", {
+            duration: 5000
+          });
+        }, 3000);
+      }
     }
   };
 
@@ -407,96 +456,116 @@ Type 'help' for available commands.`;
       <div className="crt"></div>
       
       {/* Header */}
-      <header className="p-2 border-b border-cyberpunk-neon-green bg-cyberpunk-dark-blue shadow-[0_0_10px_rgba(0,255,65,0.2)]">
-        <div className="container mx-auto flex items-center justify-between">
-          <div className="flex items-center">
-            <div className="text-2xl font-pixel text-cyberpunk-neon-green neon-glow mr-2">QUX-95</div>
-            <div className="text-sm opacity-70">GENESIS CORE v1.2.0</div>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <Button
-              size="sm"
-              variant={isDarkMode ? "default" : "outline"}
-              className={cn(
-                "text-xs",
-                isDarkMode ? 
-                  "bg-cyberpunk-neon-blue text-cyberpunk-dark border-cyberpunk-neon-blue" :
-                  "border-cyberpunk-neon-blue text-cyberpunk-neon-blue"
-              )}
-              onClick={toggleDarkMode}
-            >
-              {isDarkMode ? <Moon className="h-3 w-3 mr-1" /> : <Sun className="h-3 w-3 mr-1" />}
-              {isDarkMode ? 'DARK MODE' : 'LIGHT MODE'}
-            </Button>
-            
+      <header className="sticky top-0 z-10 bg-cyberpunk-dark border-b border-cyberpunk-neon-blue p-2">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center space-x-2">
+            <Terminal className="h-5 w-5 text-cyberpunk-neon-green" />
+            <span className="text-cyberpunk-neon-green font-pixel text-sm md:text-lg">QUX-95</span>
             <Button
               size="sm"
               variant={systemStatus === 'OFFLINE' ? "destructive" : "outline"}
               className={cn(
                 systemStatus === 'ONLINE' ? "border-cyberpunk-neon-green text-cyberpunk-neon-green" : "",
-                "text-xs shadow-[0_0_5px_rgba(0,255,65,0.3)]"
+                showSystemStatusWindow && systemStatus === 'ONLINE' ? "ring-1 ring-cyberpunk-neon-green" : "",
+                "text-xs shadow-[0_0_5px_rgba(0,255,65,0.3)] relative"
               )}
               onClick={handleSystemToggle}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                if (systemStatus === 'ONLINE') {
+                  setShowSystemStatusWindow(!showSystemStatusWindow);
+                }
+              }}
+              title="Left-click to toggle system status, right-click to view system details"
             >
               <Power className="h-3 w-3 mr-1" />
               {systemStatus}
+              {showSystemStatusWindow && systemStatus === 'ONLINE' && (
+                <span className="absolute top-0 right-0 w-1.5 h-1.5 bg-cyberpunk-neon-green rounded-full"></span>
+              )}
             </Button>
-            
+          </div>
+          
+          <div className="flex items-center space-x-2">
             <Button
               size="sm"
               variant="outline"
-              className="border-cyberpunk-neon-purple text-cyberpunk-neon-purple text-xs shadow-[0_0_5px_rgba(157,0,255,0.3)]"
-              onClick={() => setIsSelfModifying(true)}
-              disabled={isSelfModifying || systemStatus === 'OFFLINE'}
-            >
-              <RefreshCcw className="h-3 w-3 mr-1" />
-              {isSelfModifying ? 'MODIFYING...' : 'SELF-MODIFY'}
-            </Button>
-            
-            <Button
-              size="sm"
-              variant={autoMode ? "default" : "outline"}
-              className={cn(
-                "text-xs",
-                autoMode ? 
-                  "bg-cyberpunk-neon-purple text-cyberpunk-dark border-cyberpunk-neon-purple" :
-                  "border-cyberpunk-neon-purple text-cyberpunk-neon-purple"
-              )}
+              className="border-cyberpunk-neon-blue text-cyberpunk-neon-blue text-xs shadow-[0_0_5px_rgba(0,157,255,0.3)]"
+              onClick={() => setActiveTab('chat')}
               disabled={systemStatus === 'OFFLINE'}
-              onClick={() => setAutoMode(!autoMode)}
             >
-              <Database className="h-3 w-3 mr-1" />
-              {autoMode ? 'AUTO: ON' : 'AUTO: OFF'}
+              <MessageSquare className="h-3 w-3 mr-1" />
+              CHAT
             </Button>
             
             <Button
               size="sm"
               variant="outline"
-              className={cn(
-                "text-xs",
-                isOllamaConnected 
-                  ? "border-cyberpunk-neon-green text-cyberpunk-neon-green" 
-                  : "border-red-500 text-red-500"
-              )}
-              onClick={async () => {
-                const connected = await ollamaService.checkConnection();
-                setIsOllamaConnected(connected);
-                
-                if (connected) {
-                  toast.success("Ollama connection verified", {
-                    description: "Connection is active and working properly"
-                  });
-                } else {
-                  toast.error("Ollama connection failed", {
-                    description: "Unable to connect to Ollama service"
-                  });
-                }
-              }}
+              className="border-cyberpunk-neon-pink text-cyberpunk-neon-pink text-xs shadow-[0_0_5px_rgba(255,0,157,0.3)]"
+              onClick={() => setActiveTab('rag')}
+              disabled={systemStatus === 'OFFLINE'}
             >
-              <Database className="h-3 w-3 mr-1" />
-              {isOllamaConnected ? 'OLLAMA CONNECTED' : 'OLLAMA DISCONNECTED'}
+              <FileText className="h-3 w-3 mr-1" />
+              KNOWLEDGE
             </Button>
+
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-cyberpunk-neon-pink text-cyberpunk-neon-pink text-xs shadow-[0_0_5px_rgba(255,0,157,0.3)]"
+              onClick={() => {
+                setShowAdvancedFeaturesWindow(true);
+              }}
+              disabled={systemStatus === 'OFFLINE'}
+            >
+              <Brain className="h-3 w-3 mr-1" />
+              ADVANCED
+            </Button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-cyberpunk-neon-purple text-cyberpunk-neon-purple text-xs shadow-[0_0_5px_rgba(157,0,255,0.3)]"
+                  disabled={systemStatus === 'OFFLINE'}
+                >
+                  <SettingsIcon className="h-3 w-3 mr-1" />
+                  SETTINGS
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56 bg-cyberpunk-dark border-cyberpunk-neon-purple">
+                <DropdownMenuItem
+                  className="text-cyberpunk-neon-purple hover:bg-cyberpunk-dark-blue"
+                  onClick={() => setActiveTab('settings')}
+                >
+                  <SettingsIcon className="h-3 w-3 mr-2" />
+                  Configuration
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-cyberpunk-neon-purple hover:bg-cyberpunk-dark-blue"
+                  onClick={() => setIsSelfModifying(true)}
+                  disabled={isSelfModifying}
+                >
+                  <RefreshCcw className="h-3 w-3 mr-2" />
+                  {isSelfModifying ? 'Self-Modifying...' : 'Self-Modify'}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-cyberpunk-neon-purple hover:bg-cyberpunk-dark-blue"
+                  onClick={handleStartSelfCoding}
+                >
+                  <Code className="h-3 w-3 mr-2" />
+                  {autonomousService.isServiceActive() ? 'Self-Coding: ON' : 'Self-Coding: OFF'}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-cyberpunk-neon-purple hover:bg-cyberpunk-dark-blue"
+                  onClick={() => setAutoMode(!autoMode)}
+                >
+                  <Database className="h-3 w-3 mr-2" />
+                  {autoMode ? 'Auto Mode: ON' : 'Auto Mode: OFF'}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             
             <Button
               size="sm"
@@ -529,142 +598,103 @@ Type 'help' for available commands.`;
       <main className="flex-1 container mx-auto grid grid-cols-4 gap-4 p-4 overflow-hidden">
         {/* Left Panel */}
         <div className="col-span-1 space-y-4">
-          <div className="grid grid-cols-10 gap-2">
+          <div className="grid grid-cols-1 gap-2">
             <Button
               variant="ghost"
               className={cn(
-                "flex flex-col items-center justify-center p-2 h-16",
-                "border border-cyberpunk-neon-green hover:bg-cyberpunk-dark",
+                "flex flex-col items-center justify-center p-2 h-16 w-full",
+                "border border-cyberpunk-neon-green hover:bg-cyberpunk-neon-green hover:text-white",
                 activeTab === 'terminal' && "bg-cyberpunk-dark-blue"
               )}
               onClick={() => setActiveTab('terminal')}
             >
               <TerminalSquare className="h-5 w-5 mb-1" />
-              <span className="text-xs">TERM</span>
+              <span className="text-xs">TERMINAL</span>
             </Button>
             
             <Button
               variant="ghost"
               className={cn(
-                "flex flex-col items-center justify-center p-2 h-16",
-                "border border-cyberpunk-neon-blue hover:bg-cyberpunk-dark",
-                activeTab === 'chat' && "bg-cyberpunk-dark-blue"
-              )}
-              onClick={() => setActiveTab('chat')}
-            >
-              <MessageSquare className="h-5 w-5 mb-1" />
-              <span className="text-xs">CHAT</span>
-            </Button>
-            
-            <Button
-              variant="ghost"
-              className={cn(
-                "flex flex-col items-center justify-center p-2 h-16",
-                "border border-cyberpunk-neon-blue hover:bg-cyberpunk-dark",
+                "flex flex-col items-center justify-center p-2 h-16 w-full",
+                "border border-cyberpunk-neon-green hover:bg-cyberpunk-neon-green hover:text-white",
                 activeTab === 'code' && "bg-cyberpunk-dark-blue"
               )}
               onClick={() => setActiveTab('code')}
             >
               <Code className="h-5 w-5 mb-1" />
-              <span className="text-xs">CODE</span>
+              <span className="text-xs">CODE GENERATION</span>
             </Button>
             
             <Button
               variant="ghost"
               className={cn(
-                "flex flex-col items-center justify-center p-2 h-16",
-                "border border-cyberpunk-neon-pink hover:bg-cyberpunk-dark",
-                activeTab === 'rag' && "bg-cyberpunk-dark-blue"
-              )}
-              onClick={() => setActiveTab('rag')}
-            >
-              <FileText className="h-5 w-5 mb-1" />
-              <span className="text-xs">RAG</span>
-            </Button>
-            
-            <Button
-              variant="ghost"
-              className={cn(
-                "flex flex-col items-center justify-center p-2 h-16",
-                "border border-cyberpunk-neon-pink hover:bg-cyberpunk-dark",
+                "flex flex-col items-center justify-center p-2 h-16 w-full",
+                "border border-cyberpunk-neon-green hover:bg-cyberpunk-neon-green hover:text-white",
                 activeTab === 'image-gen' && "bg-cyberpunk-dark-blue"
               )}
               onClick={() => setActiveTab('image-gen')}
             >
               <Image className="h-5 w-5 mb-1" />
-              <span className="text-xs">IMAGE</span>
+              <span className="text-xs">IMAGE GENERATION</span>
             </Button>
             
             <Button
               variant="ghost"
               className={cn(
-                "flex flex-col items-center justify-center p-2 h-16",
-                "border border-cyberpunk-neon-pink hover:bg-cyberpunk-dark",
-                activeTab === 'prompt-edit' && "bg-cyberpunk-dark-blue"
-              )}
-              onClick={() => setActiveTab('prompt-edit')}
-            >
-              <Edit className="h-5 w-5 mb-1" />
-              <span className="text-xs">PROMPT</span>
-            </Button>
-            
-            <Button
-              variant="ghost"
-              className={cn(
-                "flex flex-col items-center justify-center p-2 h-16",
-                "border border-cyberpunk-neon-blue hover:bg-cyberpunk-dark",
+                "flex flex-col items-center justify-center p-2 h-16 w-full",
+                "border border-cyberpunk-neon-green hover:bg-cyberpunk-neon-green hover:text-white",
                 activeTab === 'workspace' && "bg-cyberpunk-dark-blue"
               )}
               onClick={() => setActiveTab('workspace')}
             >
               <Folder className="h-5 w-5 mb-1" />
-              <span className="text-xs">FILES</span>
+              <span className="text-xs">WS FILE DIRECTORY</span>
             </Button>
             
             <Button
               variant="ghost"
               className={cn(
-                "flex flex-col items-center justify-center p-2 h-16",
-                "border border-cyberpunk-neon-blue hover:bg-cyberpunk-dark",
+                "flex flex-col items-center justify-center p-2 h-16 w-full",
+                "border border-cyberpunk-neon-green hover:bg-cyberpunk-neon-green hover:text-white",
                 activeTab === 'github' && "bg-cyberpunk-dark-blue"
               )}
               onClick={() => setActiveTab('github')}
             >
               <Github className="h-5 w-5 mb-1" />
-              <span className="text-xs">GIT</span>
+              <span className="text-xs">GITHUB MANAGER</span>
             </Button>
             
             <Button
               variant="ghost"
               className={cn(
-                "flex flex-col items-center justify-center p-2 h-16",
-                "border border-cyberpunk-neon-pink hover:bg-cyberpunk-dark",
+                "flex flex-col items-center justify-center p-2 h-16 w-full",
+                "border border-cyberpunk-neon-green hover:bg-cyberpunk-neon-green hover:text-white",
                 activeTab === 'learning' && "bg-cyberpunk-dark-blue"
               )}
               onClick={() => setActiveTab('learning')}
             >
               <Brain className="h-5 w-5 mb-1" />
-              <span className="text-xs">LEARN</span>
-            </Button>
-            
-            <Button
-              variant="ghost"
-              className={cn(
-                "flex flex-col items-center justify-center p-2 h-16",
-                "border border-cyberpunk-neon-purple hover:bg-cyberpunk-dark",
-                activeTab === 'settings' && "bg-cyberpunk-dark-blue"
-              )}
-              onClick={() => setActiveTab('settings')}
-            >
-              <SettingsIcon className="h-5 w-5 mb-1" />
-              <span className="text-xs">CONFIG</span>
+              <span className="text-xs">SELF-LEARNING SYSTEM</span>
             </Button>
           </div>
           
-          <ModelSelector 
-            className="h-[calc(100vh-14rem)]" 
-            onModelSelect={handleModelSelect}
-          />
+          <Collapsible>
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost"
+                className="w-full border border-cyberpunk-neon-green text-cyberpunk-neon-green hover:bg-cyberpunk-neon-green hover:text-white"
+              >
+                <ChevronDown className="h-4 w-4 mr-2" />
+                <span className="text-xs">MODELS</span>
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-2">
+              <ModelSelector 
+                className="h-[calc(100vh-14rem)]" 
+                onModelSelect={handleModelSelect}
+              />
+            </CollapsibleContent>
+          </Collapsible>
         </div>
         
         {/* Main Panel */}
@@ -731,18 +761,168 @@ Type 'help' for available commands.`;
       </main>
       
       {/* Status Bar */}
-      <StatusBar />
+      <div className="flex flex-col h-full">
+        <div className="h-auto border-t border-cyberpunk-neon-purple bg-cyberpunk-dark">
+          <div className="flex items-start">
+            <StatusBar className="flex-1" />
+            
+            <div className="w-64 p-1">
+              <MemoryStats compact={true} />
+            </div>
+          </div>
+        </div>
+      </div>
       
-      {/* Self-Modification Overlay */}
+      {/* System Status Window */}
+      {showSystemStatusWindow && (
+        <DraggableWindow
+          title="SYSTEM STATUS DASHBOARD"
+          defaultPosition={{ x: Math.max(100, window.innerWidth - 700), y: 100 }}
+          defaultWidth={650}
+          defaultHeight={400}
+          onClose={() => setShowSystemStatusWindow(false)}
+          className="z-40"
+        >
+          <div className="h-full overflow-auto">
+            <SystemStatusDashboard className="border-none" />
+          </div>
+        </DraggableWindow>
+      )}
+      
+      {/* Self-Modification Window */}
       {isSelfModifying && (
-        <div className="fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center p-8">
+        <DraggableWindow
+          title="SELF-MODIFICATION"
+          defaultPosition={{ x: 100, y: 100 }}
+          defaultWidth={800}
+          defaultHeight={600}
+          onClose={() => {
+            setIsSelfModifying(false);
+            handleSelfModificationComplete();
+          }}
+          className="z-40"
+        >
           <SelfModification 
             active={true} 
-            className="w-full max-w-4xl h-[500px]" 
+            className="h-full" 
             onComplete={handleSelfModificationComplete}
           />
-        </div>
+        </DraggableWindow>
       )}
+      
+      {/* Advanced Features Window */}
+      {showAdvancedFeaturesWindow && (
+        <DraggableWindow
+          title="ADVANCED FEATURES"
+          defaultPosition={{ x: window.innerWidth - 500, y: 100 }}
+          defaultWidth={450}
+          defaultHeight={500}
+          onClose={() => setShowAdvancedFeaturesWindow(false)}
+          className="z-40"
+        >
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <FeatureCard 
+                title="Computer Vision" 
+                description="Advanced image recognition and processing capabilities"
+                icon={<Image className="h-10 w-10 text-cyberpunk-neon-pink" />}
+                onClick={() => console.log("Computer Vision clicked")}
+              />
+              
+              <FeatureCard 
+                title="NLP Analysis" 
+                description="Deep linguistic pattern recognition and semantic parsing"
+                icon={<MessageSquare className="h-10 w-10 text-cyberpunk-neon-blue" />}
+                onClick={() => console.log("NLP Analysis clicked")}
+              />
+              
+              <FeatureCard 
+                title="Neural Networks" 
+                description="Custom neural network training and deployment"
+                icon={<Brain className="h-10 w-10 text-cyberpunk-neon-purple" />}
+                onClick={() => console.log("Neural Networks clicked")}
+              />
+              
+              <FeatureCard 
+                title="Data Visualization" 
+                description="Advanced data visualization and pattern detection"
+                icon={<BarChart className="h-10 w-10 text-cyberpunk-neon-green" />}
+                onClick={() => console.log("Data Visualization clicked")}
+              />
+              
+              <FeatureCard 
+                title="Quantum Algorithms" 
+                description="Quantum-inspired optimization algorithms"
+                icon={<Wand className="h-10 w-10 text-cyberpunk-neon-purple" />}
+                onClick={() => console.log("Quantum Algorithms clicked")}
+              />
+              
+              <FeatureCard 
+                title="System Integration" 
+                description="Advanced integration with external systems and APIs"
+                icon={<Globe className="h-10 w-10 text-cyberpunk-neon-blue" />}
+                onClick={() => console.log("System Integration clicked")}
+              />
+            </div>
+            
+            <div className="pt-2 border-t border-cyberpunk-neon-purple">
+              <div className="text-xs text-cyberpunk-neon-blue mb-2">
+                System Performance Metrics
+              </div>
+              <div className="space-y-2">
+                <div>
+                  <div className="flex justify-between text-xs">
+                    <span>Neural Efficiency</span>
+                    <span>87.3%</span>
+                  </div>
+                  <Progress value={87.3} className="h-1" />
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs">
+                    <span>Quantum Utilization</span>
+                    <span>63.8%</span>
+                  </div>
+                  <Progress value={63.8} className="h-1" />
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs">
+                    <span>Cognitive Index</span>
+                    <span>92.1%</span>
+                  </div>
+                  <Progress value={92.1} className="h-1" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </DraggableWindow>
+      )}
+    </div>
+  );
+};
+
+// Feature Card component for Advanced Features window
+interface FeatureCardProps {
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+}
+
+const FeatureCard: React.FC<FeatureCardProps> = ({ title, description, icon, onClick }) => {
+  return (
+    <div 
+      className="p-3 border border-cyberpunk-neon-purple bg-cyberpunk-dark-blue rounded cursor-pointer hover:bg-cyberpunk-dark hover:border-cyberpunk-neon-pink transition-all duration-300"
+      onClick={onClick}
+    >
+      <div className="flex items-start">
+        <div className="mr-3">
+          {icon}
+        </div>
+        <div>
+          <h3 className="text-cyberpunk-neon-pink text-sm font-bold">{title}</h3>
+          <p className="text-xs text-cyberpunk-neon-blue mt-1">{description}</p>
+        </div>
+      </div>
     </div>
   );
 };

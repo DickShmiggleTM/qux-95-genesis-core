@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -66,13 +65,21 @@ export default {
 				// Cyberpunk theme colors
 				cyberpunk: {
 					'dark': '#0D0221',
+					'darker': '#05010F',
+					'darkest': '#020008',
 					'dark-blue': '#1F2041',
 					'neon-green': '#00FF41',
+					'neon-green-dark': '#00C852',
 					'neon-blue': '#0AFFFF',
+					'neon-blue-dark': '#00C8C8',
 					'neon-purple': '#9D00FF',
+					'neon-purple-dark': '#7800C8',
 					'neon-pink': '#FF00A0',
+					'neon-pink-dark': '#C80080',
 					'terminal-green': '#33FF33',
+					'terminal-green-dark': '#00C800',
 					'grid': '#1A3A3A',
+					'grid-dark': '#0D1D1D',
 				},
 			},
 			borderRadius: {

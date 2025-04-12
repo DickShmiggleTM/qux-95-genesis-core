@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -10,6 +9,8 @@ import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
 import { toast } from 'sonner';
 import { ollamaService } from '@/services/ollamaService';
+import { enhancedMemoryManager } from '@/services/memory/EnhancedMemoryManager';
+import { MemoryOptions } from '@/services/memory/MemoryTypes';
 
 interface SettingsProps {
   className?: string;
@@ -47,7 +48,38 @@ const Settings: React.FC<SettingsProps> = ({ className, onSave }) => {
     autoRespond: false,
     autoRespondDelay: 5,
     chatMaxLength: 100,
+    
+    // Memory settings
+    shortTermCapacity: 50,
+    longTermCapacity: 1000,
+    contextWindowSize: 10,
+    adaptiveContextSize: true,
+    enableMemorySummarization: true,
+    memoryDecayFactor: 0.95,
+    memoryPersistenceMode: 'local',
+    enableVectorSearch: true,
+    autoPruneThreshold: 0.2
   });
+
+  // Load memory settings on init
+  useEffect(() => {
+    try {
+      const memoryOptions = enhancedMemoryManager.getOptions();
+      setSettings(prev => ({
+        ...prev,
+        shortTermCapacity: memoryOptions.shortTermCapacity,
+        longTermCapacity: memoryOptions.longTermCapacity,
+        contextWindowSize: memoryOptions.contextWindowSize,
+        adaptiveContextSize: memoryOptions.adaptiveMode,
+        memoryDecayFactor: memoryOptions.decayFactor,
+        memoryPersistenceMode: memoryOptions.persistenceMode,
+        enableVectorSearch: memoryOptions.vectorDimensions > 0,
+        autoPruneThreshold: memoryOptions.autoPruneThreshold
+      }));
+    } catch (error) {
+      console.error('Failed to load memory settings:', error);
+    }
+  }, []);
 
   useEffect(() => {
     setSettings(prev => ({
@@ -77,6 +109,27 @@ const Settings: React.FC<SettingsProps> = ({ className, onSave }) => {
     // Apply theme settings
     setTheme(settings.theme as 'cyberpunk' | 'terminal' | 'hacker');
     setAnimationsEnabled(settings.enableAnimations);
+    
+    // Update memory settings
+    try {
+      const memoryOptions: Partial<MemoryOptions> = {
+        shortTermCapacity: settings.shortTermCapacity,
+        longTermCapacity: settings.longTermCapacity,
+        contextWindowSize: settings.contextWindowSize,
+        adaptiveMode: settings.adaptiveContextSize,
+        decayFactor: settings.memoryDecayFactor,
+        persistenceMode: settings.memoryPersistenceMode as 'local' | 'indexed-db' | 'file' | 'sqlite',
+        vectorDimensions: settings.enableVectorSearch ? 384 : 0,
+        autoPruneThreshold: settings.autoPruneThreshold
+      };
+      
+      enhancedMemoryManager.setOptions(memoryOptions);
+    } catch (error) {
+      console.error('Failed to update memory settings:', error);
+      toast.error('Failed to update memory settings', {
+        description: 'Some memory options could not be applied'
+      });
+    }
     
     if (onSave) {
       onSave(settings);
@@ -350,14 +403,157 @@ const Settings: React.FC<SettingsProps> = ({ className, onSave }) => {
               </div>
             </div>
           </div>
+          
+          {/* Memory Settings - New Section */}
+          <div>
+            <h3 className="text-cyberpunk-neon-purple font-bold mb-3">MEMORY MANAGEMENT</h3>
+            
+            <div className="space-y-3">
+              <div className="grid gap-2">
+                <Label htmlFor="contextWindowSize">Context Window Size</Label>
+                <Slider
+                  id="contextWindowSize"
+                  value={[settings.contextWindowSize]}
+                  min={5}
+                  max={30}
+                  step={1}
+                  onValueChange={(value) => handleSettingChange('contextWindowSize', value[0])}
+                  className="py-4"
+                />
+                <div className="text-right text-xs">{settings.contextWindowSize} items</div>
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <Label htmlFor="adaptiveContextSize">Adaptive Context Size</Label>
+                <Switch
+                  id="adaptiveContextSize"
+                  checked={settings.adaptiveContextSize}
+                  onCheckedChange={(checked) => handleSettingChange('adaptiveContextSize', checked)}
+                  className="data-[state=checked]:bg-cyberpunk-neon-purple"
+                />
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="shortTermCapacity">Short-Term Memory Capacity</Label>
+                <Slider
+                  id="shortTermCapacity"
+                  value={[settings.shortTermCapacity]}
+                  min={10}
+                  max={200}
+                  step={10}
+                  onValueChange={(value) => handleSettingChange('shortTermCapacity', value[0])}
+                  className="py-4"
+                />
+                <div className="text-right text-xs">{settings.shortTermCapacity} items</div>
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="longTermCapacity">Long-Term Memory Capacity</Label>
+                <Slider
+                  id="longTermCapacity"
+                  value={[settings.longTermCapacity]}
+                  min={100}
+                  max={5000}
+                  step={100}
+                  onValueChange={(value) => handleSettingChange('longTermCapacity', value[0])}
+                  className="py-4"
+                />
+                <div className="text-right text-xs">{settings.longTermCapacity} items</div>
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="memoryDecayFactor">Memory Decay Factor</Label>
+                <Slider
+                  id="memoryDecayFactor"
+                  value={[settings.memoryDecayFactor * 100]}
+                  min={80}
+                  max={99}
+                  step={1}
+                  onValueChange={(value) => handleSettingChange('memoryDecayFactor', value[0] / 100)}
+                  className="py-4"
+                />
+                <div className="text-right text-xs">{settings.memoryDecayFactor.toFixed(2)}</div>
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <Label htmlFor="enableVectorSearch">Enable Vector Search</Label>
+                <Switch
+                  id="enableVectorSearch"
+                  checked={settings.enableVectorSearch}
+                  onCheckedChange={(checked) => handleSettingChange('enableVectorSearch', checked)}
+                  className="data-[state=checked]:bg-cyberpunk-neon-purple"
+                />
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="memoryPersistenceMode">Persistence Mode</Label>
+                <Select
+                  value={settings.memoryPersistenceMode}
+                  onValueChange={(value) => handleSettingChange('memoryPersistenceMode', value)}
+                >
+                  <SelectTrigger id="memoryPersistenceMode" className="bg-cyberpunk-dark-blue border-cyberpunk-neon-purple text-cyberpunk-neon-blue">
+                    <SelectValue placeholder="Select storage type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="local">Local Storage</SelectItem>
+                    <SelectItem value="indexed-db">Indexed DB</SelectItem>
+                    <SelectItem value="sqlite">SQLite</SelectItem>
+                    <SelectItem value="file">File System</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="text-xs text-cyberpunk-neon-blue">Determines how memory is stored between sessions</div>
+              </div>
+              
+              <div className="flex justify-between pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    enhancedMemoryManager.clearMemory();
+                    toast.success('Memory cleared', {
+                      description: 'All memory items have been removed'
+                    });
+                  }}
+                  className="border-red-500 text-red-500 hover:bg-red-950 hover:text-red-400"
+                >
+                  Clear Memory
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    enhancedMemoryManager.applyMemoryDecay();
+                    toast.success('Memory decay applied', {
+                      description: 'Importance of older memories has been reduced'
+                    });
+                  }}
+                  className="border-yellow-500 text-yellow-500 hover:bg-yellow-950 hover:text-yellow-400"
+                >
+                  Apply Decay
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    enhancedMemoryManager.backupMemory('memory_backup.json');
+                    toast.success('Memory backed up', {
+                      description: 'Memory data has been backed up'
+                    });
+                  }}
+                  className="border-cyberpunk-neon-blue text-cyberpunk-neon-blue hover:bg-blue-950"
+                >
+                  Backup
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
         
         <div className="mt-6 flex justify-end">
           <Button 
             onClick={handleSaveSettings}
-            className="bg-cyberpunk-neon-purple hover:bg-purple-700 text-cyberpunk-dark"
+            className="bg-cyberpunk-neon-purple text-cyberpunk-dark hover:bg-cyberpunk-neon-pink"
           >
-            SAVE SETTINGS
+            Save Settings
           </Button>
         </div>
       </div>

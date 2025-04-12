@@ -8,9 +8,13 @@ import { SystemStatus } from '@/components/ChatWindow/types';
 
 interface SystemStatusDashboardProps {
   className?: string;
+  standalone?: boolean;
 }
 
-const SystemStatusDashboard: React.FC<SystemStatusDashboardProps> = ({ className }) => {
+const SystemStatusDashboard: React.FC<SystemStatusDashboardProps> = ({ 
+  className,
+  standalone = true
+}) => {
   const [systemStatus, setSystemStatus] = useState<SystemStatus>({
     cpu: { usage: 0, cores: 0 },
     memory: { used: 0, total: 0, percentage: 0 },
@@ -165,14 +169,12 @@ const SystemStatusDashboard: React.FC<SystemStatusDashboardProps> = ({ className
       default: return 'text-gray-400';
     }
   };
-
-  return (
-    <div className={cn(
-      "relative font-terminal bg-cyberpunk-dark border border-cyberpunk-neon-blue rounded-none",
-      "pixel-corners pixel-borders transition-all",
-      isCollapsed ? "h-12" : "h-auto",
-      className
-    )}>
+  
+  // Only show the collapsible header when standalone (not in a draggable window)
+  const renderHeader = () => {
+    if (!standalone) return null;
+    
+    return (
       <div 
         className="absolute top-0 left-0 right-0 bg-cyberpunk-neon-blue h-5 flex items-center px-2 cursor-pointer"
         onClick={() => setIsCollapsed(!isCollapsed)}
@@ -192,9 +194,26 @@ const SystemStatusDashboard: React.FC<SystemStatusDashboardProps> = ({ className
           {isCollapsed ? '[+]' : '[-]'}
         </div>
       </div>
+    );
+  };
+
+  return (
+    <div className={cn(
+      "relative font-terminal bg-cyberpunk-dark",
+      standalone ? "border border-cyberpunk-neon-blue rounded-none pixel-corners pixel-borders" : "",
+      "transition-all",
+      standalone && isCollapsed ? "h-12" : "h-auto",
+      className
+    )}>
+      {renderHeader()}
       
-      {!isCollapsed && (
-        <div className="p-4 pt-6 overflow-hidden animate-fade-in">
+      {(!isCollapsed || !standalone) && (
+        <div className={cn(
+          "p-4",
+          standalone ? "pt-6" : "pt-0",
+          "overflow-hidden",
+          standalone ? "animate-fade-in" : ""
+        )}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* CPU Status */}
             <div className="bg-cyberpunk-dark-blue p-3 border border-cyberpunk-neon-blue">
@@ -252,23 +271,24 @@ const SystemStatusDashboard: React.FC<SystemStatusDashboardProps> = ({ className
                 <Activity className="h-4 w-4 mr-2 text-cyberpunk-neon-blue" />
                 <span className="text-cyberpunk-neon-blue text-sm">Active Processes</span>
                 <span className="ml-auto text-cyberpunk-neon-green text-sm">
-                  {systemStatus.activeProcesses.length}
+                  {systemStatus.activeProcesses.length} running
                 </span>
               </div>
-              <div className="max-h-32 overflow-y-auto" role="list">
-                {systemStatus.activeProcesses.length === 0 ? (
-                  <div className="text-gray-400 text-xs">No active processes</div>
-                ) : (
-                  systemStatus.activeProcesses.map((process, index) => (
-                    <div key={process.id} className="mb-2">
-                      <div className="flex items-center">
-                        <span className={`text-xs ${getProcessStatusColor(process.status)}`}>
-                          {process.name}
-                        </span>
-                        <span className="ml-auto text-xs text-gray-400">
+              
+              {systemStatus.activeProcesses.length > 0 ? (
+                <div className="space-y-2 mt-2">
+                  {systemStatus.activeProcesses.map(process => (
+                    <div key={process.id} className="bg-cyberpunk-dark p-2 border border-cyberpunk-neon-blue border-opacity-50">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center">
+                          <span className={`text-xs ${getProcessStatusColor(process.status)}`}>•</span>
+                          <span className="text-xs text-cyberpunk-neon-green ml-1">{process.name}</span>
+                        </div>
+                        <span className="text-xs text-cyberpunk-neon-blue">
                           {new Date(process.startTime).toLocaleTimeString()}
                         </span>
                       </div>
+                      
                       {process.progress !== undefined && (
                         <Progress 
                           value={process.progress} 
@@ -276,11 +296,14 @@ const SystemStatusDashboard: React.FC<SystemStatusDashboardProps> = ({ className
                           aria-label={`${process.name} Progress`}
                         />
                       )}
-                      {index < systemStatus.activeProcesses.length - 1 && <Separator className="my-2" />}
                     </div>
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-cyberpunk-neon-blue text-xs text-center py-2">
+                  No active processes
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -289,4 +312,4 @@ const SystemStatusDashboard: React.FC<SystemStatusDashboardProps> = ({ className
   );
 };
 
-export default React.memo(SystemStatusDashboard);
+export default SystemStatusDashboard;

@@ -118,12 +118,194 @@
     width: 100%;
     height: 100%;
     background: linear-gradient(
-      rgba(18, 16, 16, 0) 50%,
-      rgba(0, 0, 0, 0.1) 50%
+      to bottom,
+      transparent 0%,
+      rgba(0, 255, 65, 0.1) 50%,
+      transparent 100%
     );
-    background-size: 100% 2px;
+    opacity: 0.1;
     pointer-events: none;
-    z-index: 998;
+    z-index: 10000;
+    animation: scanline 12s linear infinite reverse;
+  }
+
+  .crt {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 9998;
+    mix-blend-mode: overlay;
+    opacity: 0.2;
+    background: radial-gradient(
+      circle at center,
+      rgba(0, 255, 65, 0.08) 0%,
+      transparent 70%
+    );
+  }
+
+  .crt::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0.12) 0px,
+      rgba(0, 0, 0, 0.12) 1px,
+      transparent 1px,
+      transparent 2px
+    );
+    pointer-events: none;
+  }
+
+  .crt::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.08) 0px,
+      rgba(0, 0, 0, 0.08) 1px,
+      transparent 1px,
+      transparent 2px
+    );
+    pointer-events: none;
+  }
+
+  .crt::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    opacity: 0.15;
+    mix-blend-mode: overlay;
+    pointer-events: none;
+  }
+
+  .screen-flicker {
+    animation: flicker 0.15s linear infinite;
+  }
+
+  @keyframes flicker {
+    0% { opacity: 0.98; }
+    5% { opacity: 0.985; }
+    10% { opacity: 0.99; }
+    15% { opacity: 0.985; }
+    20% { opacity: 0.98; }
+    25% { opacity: 0.985; }
+    30% { opacity: 0.99; }
+    35% { opacity: 0.985; }
+    40% { opacity: 0.98; }
+    45% { opacity: 0.985; }
+    50% { opacity: 0.99; }
+    55% { opacity: 0.985; }
+    60% { opacity: 0.98; }
+    65% { opacity: 0.985; }
+    70% { opacity: 0.99; }
+    75% { opacity: 0.985; }
+    80% { opacity: 0.98; }
+    85% { opacity: 0.985; }
+    90% { opacity: 0.99; }
+    95% { opacity: 0.985; }
+    100% { opacity: 0.98; }
+  }
+
+  .screen-glitch {
+    position: relative;
+    animation: glitch 0.3s ease infinite;
+  }
+
+  .screen-glitch::before,
+  .screen-glitch::after {
+    content: attr(data-text);
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+  }
+
+  .screen-glitch::before {
+    left: 2px;
+    text-shadow: -2px 0 #ff00ff;
+    clip: rect(44px, 450px, 56px, 0);
+    animation: glitch-anim 5s infinite linear alternate-reverse;
+  }
+
+  .screen-glitch::after {
+    left: -2px;
+    text-shadow: -2px 0 #00ffff;
+    clip: rect(44px, 450px, 56px, 0);
+    animation: glitch-anim2 5s infinite linear alternate-reverse;
+  }
+
+  @keyframes glitch {
+    0% { transform: translate(0); }
+    20% { transform: translate(-2px, 2px); }
+    40% { transform: translate(-2px, -2px); }
+    60% { transform: translate(2px, 2px); }
+    80% { transform: translate(2px, -2px); }
+    100% { transform: translate(0); }
+  }
+
+  @keyframes glitch-anim {
+    0% { clip: rect(42px, 9999px, 44px, 0); transform: skew(0.8deg); }
+    5% { clip: rect(12px, 9999px, 59px, 0); transform: skew(0.4deg); }
+    10% { clip: rect(48px, 9999px, 29px, 0); transform: skew(0.6deg); }
+    15% { clip: rect(42px, 9999px, 73px, 0); transform: skew(0.2deg); }
+    20% { clip: rect(63px, 9999px, 27px, 0); transform: skew(0.8deg); }
+    25% { clip: rect(34px, 9999px, 55px, 0); transform: skew(0.4deg); }
+    30% { clip: rect(86px, 9999px, 73px, 0); transform: skew(0.6deg); }
+    35% { clip: rect(20px, 9999px, 20px, 0); transform: skew(0.2deg); }
+    40% { clip: rect(26px, 9999px, 60px, 0); transform: skew(0.8deg); }
+    45% { clip: rect(25px, 9999px, 66px, 0); transform: skew(0.4deg); }
+    50% { clip: rect(57px, 9999px, 98px, 0); transform: skew(0.6deg); }
+    55% { clip: rect(5px, 9999px, 46px, 0); transform: skew(0.2deg); }
+    60% { clip: rect(82px, 9999px, 31px, 0); transform: skew(0.8deg); }
+    65% { clip: rect(54px, 9999px, 27px, 0); transform: skew(0.4deg); }
+    70% { clip: rect(28px, 9999px, 99px, 0); transform: skew(0.6deg); }
+    75% { clip: rect(45px, 9999px, 69px, 0); transform: skew(0.2deg); }
+    80% { clip: rect(23px, 9999px, 85px, 0); transform: skew(0.8deg); }
+    85% { clip: rect(54px, 9999px, 84px, 0); transform: skew(0.4deg); }
+    90% { clip: rect(95px, 9999px, 90px, 0); transform: skew(0.6deg); }
+    95% { clip: rect(7px, 9999px, 31px, 0); transform: skew(0.2deg); }
+    100% { clip: rect(82px, 9999px, 95px, 0); transform: skew(0.8deg); }
+  }
+
+  @keyframes glitch-anim2 {
+    0% { clip: rect(65px, 9999px, 100px, 0); transform: skew(0.4deg); }
+    5% { clip: rect(52px, 9999px, 74px, 0); transform: skew(0.8deg); }
+    10% { clip: rect(79px, 9999px, 85px, 0); transform: skew(0.2deg); }
+    15% { clip: rect(75px, 9999px, 4px, 0); transform: skew(0.6deg); }
+    20% { clip: rect(67px, 9999px, 61px, 0); transform: skew(0.4deg); }
+    25% { clip: rect(14px, 9999px, 79px, 0); transform: skew(0.8deg); }
+    30% { clip: rect(1px, 9999px, 66px, 0); transform: skew(0.2deg); }
+    35% { clip: rect(86px, 9999px, 30px, 0); transform: skew(0.6deg); }
+    40% { clip: rect(23px, 9999px, 98px, 0); transform: skew(0.4deg); }
+    45% { clip: rect(85px, 9999px, 72px, 0); transform: skew(0.8deg); }
+    50% { clip: rect(71px, 9999px, 75px, 0); transform: skew(0.2deg); }
+    55% { clip: rect(2px, 9999px, 48px, 0); transform: skew(0.6deg); }
+    60% { clip: rect(30px, 9999px, 16px, 0); transform: skew(0.4deg); }
+    65% { clip: rect(59px, 9999px, 50px, 0); transform: skew(0.8deg); }
+    70% { clip: rect(41px, 9999px, 62px, 0); transform: skew(0.2deg); }
+    75% { clip: rect(2px, 9999px, 82px, 0); transform: skew(0.6deg); }
+    80% { clip: rect(47px, 9999px, 73px, 0); transform: skew(0.4deg); }
+    85% { clip: rect(3px, 9999px, 27px, 0); transform: skew(0.8deg); }
+    90% { clip: rect(26px, 9999px, 55px, 0); transform: skew(0.2deg); }
+    95% { clip: rect(42px, 9999px, 97px, 0); transform: skew(0.6deg); }
+    100% { clip: rect(38px, 9999px, 49px, 0); transform: skew(0.4deg); }
   }
 
   .pixel-corners {
@@ -141,6 +323,16 @@
     box-shadow: 0 0 10px 0 rgba(0, 255, 65, 0.3);
   }
 
+  .dark .pixel-borders {
+    border-color: theme('colors.cyberpunk.neon-green');
+    box-shadow: 0 0 10px 0 rgba(0, 255, 65, 0.2);
+  }
+
+  .darker .pixel-borders {
+    border-color: theme('colors.cyberpunk.neon-green');
+    box-shadow: 0 0 10px 0 rgba(0, 255, 65, 0.1);
+  }
+
   .pixel-borders::before, .pixel-borders::after {
     content: "";
     position: absolute;
@@ -156,6 +348,14 @@
     font-family: 'VT323', monospace;
   }
 
+  .dark .terminal-text-output {
+    text-shadow: 0 0 4px theme('colors.cyberpunk.neon-green');
+  }
+
+  .darker .terminal-text-output {
+    text-shadow: 0 0 3px theme('colors.cyberpunk.neon-green');
+  }
+
   .terminal-text-input {
     caret-color: theme('colors.cyberpunk.neon-green');
     caret-shape: block;
@@ -166,9 +366,29 @@
     box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
   }
 
+  .dark .neon-glow {
+    text-shadow: 0 0 4px currentColor;
+    box-shadow: 0 0 10px rgba(0, 255, 65, 0.2);
+  }
+
+  .darker .neon-glow {
+    text-shadow: 0 0 3px currentColor;
+    box-shadow: 0 0 10px rgba(0, 255, 65, 0.1);
+  }
+
   .blue-glow {
     text-shadow: 0 0 5px theme('colors.cyberpunk.neon-blue');
     box-shadow: 0 0 10px rgba(10, 255, 255, 0.3);
+  }
+
+  .dark .blue-glow {
+    text-shadow: 0 0 4px theme('colors.cyberpunk.neon-blue');
+    box-shadow: 0 0 10px rgba(10, 255, 255, 0.2);
+  }
+
+  .darker .blue-glow {
+    text-shadow: 0 0 3px theme('colors.cyberpunk.neon-blue');
+    box-shadow: 0 0 10px rgba(10, 255, 255, 0.1);
   }
 
   .purple-glow {
@@ -176,10 +396,30 @@
     box-shadow: 0 0 10px rgba(157, 0, 255, 0.3);
   }
 
+  .dark .purple-glow {
+    text-shadow: 0 0 4px theme('colors.cyberpunk.neon-purple');
+    box-shadow: 0 0 10px rgba(157, 0, 255, 0.2);
+  }
+
+  .darker .purple-glow {
+    text-shadow: 0 0 3px theme('colors.cyberpunk.neon-purple');
+    box-shadow: 0 0 10px rgba(157, 0, 255, 0.1);
+  }
+
   .grid-bg {
     background-size: 20px 20px;
     background-image: linear-gradient(to right, rgba(26, 58, 58, 0.1) 1px, transparent 1px),
                       linear-gradient(to bottom, rgba(26, 58, 58, 0.1) 1px, transparent 1px);
+  }
+
+  .dark .grid-bg {
+    background-image: linear-gradient(to right, rgba(26, 58, 58, 0.08) 1px, transparent 1px),
+                      linear-gradient(to bottom, rgba(26, 58, 58, 0.08) 1px, transparent 1px);
+  }
+
+  .darker .grid-bg {
+    background-image: linear-gradient(to right, rgba(26, 58, 58, 0.05) 1px, transparent 1px),
+                      linear-gradient(to bottom, rgba(26, 58, 58, 0.05) 1px, transparent 1px);
   }
 
   .glitch {
@@ -190,5 +430,111 @@
   .typing-cursor::after {
     content: "_";
     animation: blink 1s step-end infinite;
+  }
+}
+
+/* Add subtle glitch effect for UI elements */
+.ui-glitch {
+  animation: uiGlitch 0.3s ease infinite;
+  animation-play-state: paused;
+}
+
+.ui-glitch:hover {
+  animation-play-state: running;
+}
+
+@keyframes uiGlitch {
+  0% {
+    transform: translate(0);
+    filter: hue-rotate(0deg);
+  }
+  2% {
+    transform: translate(-1px, 1px);
+    filter: hue-rotate(5deg);
+  }
+  4% {
+    transform: translate(1px, -1px);
+    filter: hue-rotate(-5deg);
+  }
+  6% {
+    transform: translate(0);
+    filter: hue-rotate(0deg);
+  }
+  100% {
+    transform: translate(0);
+    filter: hue-rotate(0deg);
+  }
+}
+
+/* Add random glitch trigger */
+@keyframes randomGlitch {
+  0% {
+    transform: translate(0);
+    filter: hue-rotate(0deg);
+  }
+  0.1% {
+    transform: translate(-1px, 1px);
+    filter: hue-rotate(5deg);
+  }
+  0.2% {
+    transform: translate(1px, -1px);
+    filter: hue-rotate(-5deg);
+  }
+  0.3% {
+    transform: translate(0);
+    filter: hue-rotate(0deg);
+  }
+  100% {
+    transform: translate(0);
+    filter: hue-rotate(0deg);
+  }
+}
+
+/* Apply random glitch to UI elements */
+.ui-element {
+  animation: randomGlitch 20s infinite;
+  animation-play-state: paused;
+}
+
+/* Trigger random glitch occasionally */
+.ui-element:hover {
+  animation-play-state: running;
+}
+
+/* Add subtle glitch effect to buttons */
+button {
+  position: relative;
+  overflow: hidden;
+}
+
+button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(0, 255, 65, 0.1),
+    transparent
+  );
+  transform: translateX(-100%);
+  animation: buttonGlitch 3s infinite;
+}
+
+@keyframes buttonGlitch {
+  0% {
+    transform: translateX(-100%);
+  }
+  0.1% {
+    transform: translateX(100%);
+  }
+  0.2% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(-100%);
   }
 }

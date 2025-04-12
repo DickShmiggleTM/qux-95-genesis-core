@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { saveSystem } from '@/services/saveSystem';
 
@@ -11,12 +10,13 @@ interface ThemeContextType {
   setAnimationsEnabled: (enabled: boolean) => void;
   isDarkMode: boolean;
   toggleDarkMode: () => void;
+  isDarkerVariant: boolean;
+  toggleDarkerVariant: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Try to load from saved state first
   const savedState = saveSystem.loadSystemState();
   
   const [theme, setThemeState] = useState<ThemeType>(
@@ -31,6 +31,10 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     localStorage.getItem('qux95_dark_mode') === 'true' || theme === 'hacker' || theme === 'dark' || false
   );
 
+  const [isDarkerVariant, setIsDarkerVariant] = useState<boolean>(
+    localStorage.getItem('qux95_darker_variant') === 'true' || false
+  );
+
   // Apply theme class to body
   useEffect(() => {
     document.body.classList.remove('theme-cyberpunk', 'theme-terminal', 'theme-hacker', 'theme-dark');
@@ -40,17 +44,17 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const root = document.documentElement;
     
     if (theme === 'cyberpunk') {
-      root.style.setProperty('--primary-color-rgb', '0, 255, 102');
+      root.style.setProperty('--primary-color-rgb', isDarkerVariant ? '0, 200, 82' : '0, 255, 102');
+      root.style.setProperty('--background-color-rgb', isDarkerVariant ? '5, 1, 15' : '13, 2, 33');
     } else if (theme === 'terminal') {
-      root.style.setProperty('--primary-color-rgb', '51, 255, 51');
+      root.style.setProperty('--primary-color-rgb', isDarkerVariant ? '0, 200, 0' : '51, 255, 51');
+      root.style.setProperty('--background-color-rgb', isDarkerVariant ? '0, 10, 0' : '0, 20, 0');
     } else if (theme === 'hacker') {
-      root.style.setProperty('--primary-color-rgb', '0, 255, 0');
-      // Enable dark mode when hacker theme is selected
-      if (!isDarkMode) {
-        setIsDarkMode(true);
-      }
+      root.style.setProperty('--primary-color-rgb', isDarkerVariant ? '0, 200, 0' : '0, 255, 0');
+      root.style.setProperty('--background-color-rgb', isDarkerVariant ? '0, 5, 0' : '0, 10, 0');
     } else if (theme === 'dark') {
-      root.style.setProperty('--primary-color-rgb', '170, 170, 255');
+      root.style.setProperty('--primary-color-rgb', isDarkerVariant ? '120, 120, 200' : '170, 170, 255');
+      root.style.setProperty('--background-color-rgb', isDarkerVariant ? '5, 5, 10' : '10, 10, 20');
     }
     
     // Apply dark mode
@@ -58,6 +62,13 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
+    }
+    
+    // Apply darker variant
+    if (isDarkerVariant) {
+      document.documentElement.classList.add('darker');
+    } else {
+      document.documentElement.classList.remove('darker');
     }
     
     // Disable animations if needed
@@ -71,6 +82,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     localStorage.setItem('qux95_theme', theme);
     localStorage.setItem('qux95_animations', String(animationsEnabled));
     localStorage.setItem('qux95_dark_mode', String(isDarkMode || theme === 'hacker' || theme === 'dark'));
+    localStorage.setItem('qux95_darker_variant', String(isDarkerVariant));
     
     // Also save to system state
     if (savedState) {
@@ -78,9 +90,10 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       savedState.settings.theme = theme;
       savedState.settings.animationsEnabled = animationsEnabled;
       savedState.settings.isDarkMode = isDarkMode || theme === 'hacker' || theme === 'dark';
+      savedState.settings.isDarkerVariant = isDarkerVariant;
       saveSystem.saveSystemState(savedState);
     }
-  }, [theme, animationsEnabled, isDarkMode, savedState]);
+  }, [theme, animationsEnabled, isDarkMode, isDarkerVariant, savedState]);
 
   const setTheme = (newTheme: ThemeType) => {
     setThemeState(newTheme);
@@ -98,6 +111,10 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsDarkMode(prev => !prev);
   };
 
+  const toggleDarkerVariant = () => {
+    setIsDarkerVariant(prev => !prev);
+  };
+
   return (
     <ThemeContext.Provider value={{ 
       theme, 
@@ -105,7 +122,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       animationsEnabled, 
       setAnimationsEnabled,
       isDarkMode,
-      toggleDarkMode
+      toggleDarkMode,
+      isDarkerVariant,
+      toggleDarkerVariant
     }}>
       {children}
     </ThemeContext.Provider>
